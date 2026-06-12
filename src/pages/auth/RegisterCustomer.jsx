@@ -90,7 +90,7 @@ const RegisterCustomer = () => {
         <div className="register-header">
           <div className="badge-glow">
             <Sparkles size={14} className="sparkle-icon" />
-            <span>Join AntiGravity</span>
+            <span>Join QueueLess</span>
           </div>
           <h2 className="register-title">Customer Sign Up</h2>
           <p className="register-subtitle">Create your account to join live virtual queues and save hours of wait time.</p>

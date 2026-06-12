@@ -167,7 +167,7 @@ const RegisterBusiness = () => {
         <div className="register-header">
           <div className="badge-glow">
             <Sparkles size={14} className="sparkle-icon" />
-            <span>AntiGravity Merchant Portal</span>
+            <span>QueueLess Merchant Portal</span>
           </div>
           <h2 className="register-title">Register Business</h2>
           <p className="register-subtitle">

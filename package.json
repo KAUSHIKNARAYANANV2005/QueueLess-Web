@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:web": "npm --prefix testing/web-tests run test:web",
+    "test:web:headed": "npm --prefix testing/web-tests run test:web:headed",
+    "report": "npm --prefix testing/web-tests run report"
   },
   "dependencies": {
     "firebase": "^12.14.0",

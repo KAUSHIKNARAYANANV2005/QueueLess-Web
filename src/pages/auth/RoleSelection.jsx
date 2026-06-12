@@ -149,7 +149,8 @@ const RoleSelection = () => {
     setLoading(true);
     try {
       await completeCustomerProfile(currentUser.uid, { name, email, phone });
-      // AuthContext will automatically update userProfile and redirect to /home.
+      // Immediately navigate — AuthContext onSnapshot will sync in the background
+      navigate('/home', { replace: true });
     } catch (err) {
       console.error('Complete Customer Profile Error:', err);
       setSubmitError('Failed to complete customer registration. Please try again.');
@@ -175,7 +176,8 @@ const RoleSelection = () => {
         address,
         businessPhone
       });
-      // AuthContext will automatically update userProfile and redirect to /dashboard.
+      // Immediately navigate — AuthContext onSnapshot will sync in the background
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Complete Business Profile Error:', err);
       setSubmitError('Failed to complete merchant registration. Please try again.');

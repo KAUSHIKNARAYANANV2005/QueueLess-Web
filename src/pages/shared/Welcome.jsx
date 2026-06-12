@@ -141,7 +141,7 @@ const Welcome = () => {
           <span>Next-Gen Queue Management</span>
         </div>
         <h1 className="hero-title">
-          Experience <span className="gradient-text">AntiGravity</span>
+          Experience <span className="gradient-text">QueueLess</span>
         </h1>
         <p className="hero-subtitle">
           Eliminating physical waiting lines in clinics, salons, and banking hubs. Replicating the native Android core with 1:1 real-time Firestore synchronization.

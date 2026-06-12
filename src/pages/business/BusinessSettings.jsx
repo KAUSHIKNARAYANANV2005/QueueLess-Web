@@ -121,17 +121,42 @@ const BusinessSettings = () => {
     if (!str || str.toLowerCase() === 'closed') {
       return { isOpen: false, start: '09:00 AM', end: '06:00 PM' };
     }
-    const parts = str.split(' - ');
-    if (parts.length === 2) {
-      return { isOpen: true, start: parts[0], end: parts[1] };
+    // Extract times using regex for maximum cross-platform compatibility
+    const timeRegex = /(\d{1,2}):(\d{2})\s*(am|pm)/gi;
+    const matches = [...str.matchAll(timeRegex)];
+    if (matches.length === 2) {
+      const formatMatch = (match) => {
+        const hh = String(parseInt(match[1], 10)).padStart(2, '0');
+        const mm = match[2];
+        const ampm = match[3].toUpperCase();
+        return `${hh}:${mm} ${ampm}`;
+      };
+      return {
+        isOpen: true,
+        start: formatMatch(matches[0]),
+        end: formatMatch(matches[1]),
+      };
     }
     return { isOpen: false, start: '09:00 AM', end: '06:00 PM' };
   };
 
   // Helper: Format hours state back to "09:00 AM - 06:00 PM" or "Closed"
   const formatHoursString = (dayState) => {
-    if (!dayState.isOpen) return 'Closed';
+    if (!dayState || !dayState.isOpen) return 'Closed';
     return `${dayState.start} - ${dayState.end}`;
+  };
+
+  // Helper: Parse time string like "09:00 AM" into minutes from midnight for validation
+  const parseTimeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!match) return 0;
+    let hour = parseInt(match[1], 10);
+    const min = parseInt(match[2], 10);
+    const ampm = match[3].toUpperCase();
+    if (ampm === 'PM' && hour < 12) hour += 12;
+    if (ampm === 'AM' && hour === 12) hour = 0;
+    return hour * 60 + min;
   };
 
   // ─── Step 1: Resolve businessId from ownerId ─────────────────────────────
@@ -371,6 +396,27 @@ const BusinessSettings = () => {
       }
     }
 
+    // Validate operating hours
+    if (isOpen) {
+      const hasAnyOpenDay = Object.values(hours).some((dayVal) => dayVal && dayVal.isOpen);
+      if (!hasAnyOpenDay) {
+        setFormError('At least one operating day must be set as Open if the business queue status is set to Open.');
+        return;
+      }
+    }
+
+    for (const day of DAYS_OF_WEEK) {
+      const dayVal = hours[day];
+      if (dayVal && dayVal.isOpen) {
+        const startMin = parseTimeToMinutes(dayVal.start);
+        const endMin = parseTimeToMinutes(dayVal.end);
+        if (endMin <= startMin) {
+          setFormError(`${day} closing time (${dayVal.end}) must be after opening time (${dayVal.start}).`);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     try {
       // Format hours map back to key-value string pairs
@@ -433,6 +479,31 @@ const BusinessSettings = () => {
           },
         },
       };
+    });
+  };
+
+  // ─── Quick Hour Presets ───────────────────────────────────────────────────
+  const applyHoursPreset = (preset) => {
+    setFormState((prev) => {
+      const newHours = {};
+      DAYS_OF_WEEK.forEach((day) => {
+        if (preset === 'open-mon-sat') {
+          newHours[day] = {
+            isOpen: day !== 'Sunday',
+            start: '09:00 AM',
+            end: '06:00 PM',
+          };
+        } else if (preset === 'open-all') {
+          newHours[day] = { isOpen: true, start: '09:00 AM', end: '06:00 PM' };
+        } else if (preset === 'close-all') {
+          newHours[day] = {
+            isOpen: false,
+            start: prev.hours[day]?.start || '09:00 AM',
+            end: prev.hours[day]?.end || '06:00 PM',
+          };
+        }
+      });
+      return { ...prev, hours: newHours };
     });
   };
 
@@ -679,56 +750,77 @@ const BusinessSettings = () => {
                 <h2>Weekly Operating Hours</h2>
               </div>
               <p className="se-section-desc">
-                Set opening and closing times for each day of the week. Days toggled off will show as 'Closed'.
+                Toggle each day open or closed, then set opening and closing times.
               </p>
+
+              {/* Quick preset buttons */}
+              <div className="se-hours-presets">
+                <button
+                  type="button"
+                  className="se-preset-btn"
+                  onClick={() => applyHoursPreset('open-mon-sat')}
+                >
+                  Mon–Sat 9AM–6PM
+                </button>
+                <button
+                  type="button"
+                  className="se-preset-btn"
+                  onClick={() => applyHoursPreset('open-all')}
+                >
+                  Open All Days
+                </button>
+                <button
+                  type="button"
+                  className="se-preset-btn se-preset-btn-danger"
+                  onClick={() => applyHoursPreset('close-all')}
+                >
+                  Close All Days
+                </button>
+              </div>
 
               <div className="se-hours-list">
                 {DAYS_OF_WEEK.map((day) => {
                   const dayState = formState.hours[day] || { isOpen: false, start: '09:00 AM', end: '06:00 PM' };
                   return (
-                    <div key={day} className={`se-hours-row ${!dayState.isOpen ? 'closed-day' : ''}`}>
+                    <div key={day} className={`se-hours-row ${!dayState.isOpen ? 'se-hours-row-closed' : ''}`}>
+                      {/* Day name + toggle */}
                       <div className="se-hr-left">
-                        <button
-                          type="button"
-                          className={`se-hr-day-toggle ${dayState.isOpen ? 'active' : ''}`}
-                          onClick={() => handleDayToggle(day)}
-                        >
-                          {dayState.isOpen ? 'Open' : 'Closed'}
-                        </button>
                         <span className="se-hr-day-name">{day}</span>
                       </div>
 
-                      {dayState.isOpen ? (
-                        <div className="se-hr-times">
-                          <div className="se-time-picker-group">
-                            <select
-                              value={dayState.start}
-                              onChange={(e) => handleTimeChange(day, 'start', e.target.value)}
-                            >
-                              {TIME_OPTIONS.map((time) => (
-                                <option key={time} value={time}>
-                                  {time}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <span className="se-time-divider">to</span>
-                          <div className="se-time-picker-group">
-                            <select
-                              value={dayState.end}
-                              onChange={(e) => handleTimeChange(day, 'end', e.target.value)}
-                            >
-                              {TIME_OPTIONS.map((time) => (
-                                <option key={time} value={time}>
-                                  {time}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="se-hr-closed-label">Closed Today</span>
-                      )}
+                      {/* Toggle switch */}
+                      <button
+                        type="button"
+                        className={`se-hr-day-toggle ${dayState.isOpen ? 'active' : ''}`}
+                        onClick={() => handleDayToggle(day)}
+                      >
+                        {dayState.isOpen ? 'Open' : 'Closed'}
+                      </button>
+
+                      {/* Time pickers — always visible, disabled when closed */}
+                      <div className="se-hr-times">
+                        <select
+                          className="se-time-select"
+                          value={dayState.start}
+                          disabled={!dayState.isOpen}
+                          onChange={(e) => handleTimeChange(day, 'start', e.target.value)}
+                        >
+                          {TIME_OPTIONS.map((time) => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
+                        <span className="se-time-divider">to</span>
+                        <select
+                          className="se-time-select"
+                          value={dayState.end}
+                          disabled={!dayState.isOpen}
+                          onChange={(e) => handleTimeChange(day, 'end', e.target.value)}
+                        >
+                          {TIME_OPTIONS.map((time) => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   );
                 })}
@@ -1121,90 +1213,152 @@ const BusinessSettings = () => {
           color: var(--text-secondary);
         }
 
+        /* ─── Operating Hours Presets ─────────────────────────── */
+        .se-hours-presets {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .se-preset-btn {
+          padding: 6px 14px;
+          border-radius: 50px;
+          font-size: 0.74rem;
+          font-weight: 700;
+          cursor: pointer;
+          border: 1px solid rgba(108, 99, 255, 0.35);
+          background: rgba(108, 99, 255, 0.08);
+          color: var(--primary);
+          transition: all 0.2s;
+          letter-spacing: 0.01em;
+        }
+
+        .se-preset-btn:hover {
+          background: rgba(108, 99, 255, 0.18);
+          border-color: rgba(108, 99, 255, 0.55);
+        }
+
+        .se-preset-btn-danger {
+          border-color: rgba(239, 83, 80, 0.35);
+          background: rgba(239, 83, 80, 0.06);
+          color: #EF5350;
+        }
+
+        .se-preset-btn-danger:hover {
+          background: rgba(239, 83, 80, 0.14);
+          border-color: rgba(239, 83, 80, 0.55);
+        }
+
         /* ─── Operating Hours rows ────────────────────────────── */
         .se-hours-list {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
         }
 
         .se-hours-row {
-          display: flex;
+          display: grid;
+          grid-template-columns: 110px auto 1fr;
           align-items: center;
-          justify-content: space-between;
-          padding: 12px 16px;
-          background: rgba(255, 255, 255, 0.01);
+          padding: 10px 14px;
+          background: rgba(255, 255, 255, 0.02);
           border: 1px solid var(--glass-border);
-          border-radius: 6px;
-          gap: 16px;
-          flex-wrap: wrap;
+          border-radius: 8px;
+          gap: 12px;
+          transition: background 0.2s, border-color 0.2s;
         }
 
-        .se-hours-row.closed-day {
-          opacity: 0.5;
-          background: none;
+        .se-hours-row:hover {
+          background: rgba(255, 255, 255, 0.035);
+        }
+
+        /* Closed days — slightly muted but fully interactive */
+        .se-hours-row-closed {
+          background: rgba(0, 0, 0, 0.1);
+          border-color: rgba(255, 255, 255, 0.04);
         }
 
         .se-hr-left {
           display: flex;
           align-items: center;
-          gap: 12px;
-          flex-shrink: 0;
-        }
-
-        .se-hr-day-toggle {
-          border: 1px solid var(--glass-border);
-          background: rgba(255,255,255,0.02);
-          color: var(--text-secondary);
-          padding: 4px 10px;
-          font-size: 0.72rem;
-          font-weight: 700;
-          border-radius: 4px;
-          cursor: pointer;
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-          transition: all 0.2s;
-        }
-
-        .se-hr-day-toggle.active {
-          background: rgba(108, 99, 255, 0.14);
-          border-color: rgba(108, 99, 255, 0.35);
-          color: var(--primary);
         }
 
         .se-hr-day-name {
           font-size: 0.85rem;
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text-primary);
+          min-width: 90px;
+        }
+
+        .se-hr-day-toggle {
+          border: 1px solid var(--glass-border);
+          background: rgba(255,255,255,0.04);
+          color: var(--text-secondary);
+          padding: 5px 14px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          border-radius: 50px;
+          cursor: pointer;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          transition: all 0.2s;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        .se-hr-day-toggle.active {
+          background: rgba(0, 230, 180, 0.12);
+          border-color: rgba(0, 230, 180, 0.4);
+          color: var(--teal);
+        }
+
+        .se-hr-day-toggle:hover {
+          opacity: 0.85;
         }
 
         .se-hr-times {
           display: flex;
           align-items: center;
           gap: 8px;
+          justify-content: flex-end;
         }
 
-        .se-time-picker-group select {
-          padding: 6px 10px;
-          background: rgba(255,255,255,0.03);
+        .se-time-select {
+          padding: 6px 8px;
+          background: rgba(255,255,255,0.04);
           border: 1px solid var(--glass-border);
-          border-radius: 4px;
+          border-radius: 6px;
           font-size: 0.8rem;
           color: var(--text-primary);
           outline: none;
           cursor: pointer;
+          transition: border-color 0.2s, opacity 0.2s;
+          min-width: 110px;
+        }
+
+        .se-time-select:disabled {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        .se-time-select:not(:disabled):focus {
+          border-color: rgba(108, 99, 255, 0.45);
         }
 
         .se-time-divider {
-          font-size: 0.78rem;
+          font-size: 0.75rem;
           color: var(--text-secondary);
+          flex-shrink: 0;
         }
 
-        .se-hr-closed-label {
-          font-size: 0.8rem;
-          color: var(--text-secondary);
-          font-style: italic;
-          font-weight: 500;
+        @media (max-width: 600px) {
+          .se-hours-row {
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto;
+          }
+          .se-hr-left { grid-column: 1; }
+          .se-hr-day-toggle { grid-column: 2; }
+          .se-hr-times { grid-column: 1 / -1; justify-content: flex-start; }
         }
 
         /* ─── Media Section ───────────────────────────────────── */

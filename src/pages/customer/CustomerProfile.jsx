@@ -47,6 +47,7 @@ const CustomerProfile = () => {
   const [saving, setSaving]         = useState(false);
   const [formError, setFormError]   = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [imgError, setImgError]     = useState(false);
 
   const [toast, setToast] = useState(null);
 
@@ -92,6 +93,10 @@ const CustomerProfile = () => {
     const phoneChanged = phone !== (profile.phone || '');
     setDirty(nameChanged || phoneChanged);
   }, [name, phone, profile]);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [profile?.profileImage, profile?.photoURL]);
 
   // ── Avatar Upload
   const handleAvatarClick = () => fileInputRef.current?.click();
@@ -255,8 +260,13 @@ const CustomerProfile = () => {
                   onClick={handleAvatarClick}
                   title="Change profile photo"
                 >
-                  {avatarSrc ? (
-                    <img src={avatarSrc} alt="Profile avatar" className="cp-avatar-img" />
+                  {avatarSrc && !imgError ? (
+                    <img
+                      src={avatarSrc}
+                      alt="Profile avatar"
+                      className="cp-avatar-img"
+                      onError={() => setImgError(true)}
+                    />
                   ) : (
                     <span className="cp-avatar-initials">{initials}</span>
                   )}

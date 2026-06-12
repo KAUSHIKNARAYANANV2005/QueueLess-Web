@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 // ─── Context ───────────────────────────────────────────────────────────────────
@@ -22,47 +22,74 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);       // any error during profile fetch
 
   useEffect(() => {
+    let unsubSnapshot = null;
+
     // Subscribe to Firebase Auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       setAuthError(null);
+
+      // Clean up previous Firestore snapshot listener if any
+      if (unsubSnapshot) {
+        unsubSnapshot();
+        unsubSnapshot = null;
+      }
 
       if (firebaseUser) {
         setCurrentUser(firebaseUser);
 
-        try {
-          // Fetch the matching Firestore user document
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-
-          if (userDocSnap.exists()) {
-            const profile = { id: userDocSnap.id, ...userDocSnap.data() };
-            setUserProfile(profile);
-            setRole(profile.role ?? null);
-          } else {
-            // User exists in Auth but has no Firestore record yet
-            // (can happen mid-registration). Keep role null.
+        // Subscribe to real-time updates on the users/{uid} document
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        unsubSnapshot = onSnapshot(
+          userDocRef,
+          (docSnap) => {
+            if (docSnap.exists()) {
+              const profile = { id: docSnap.id, ...docSnap.data() };
+              setUserProfile(profile);
+              setRole(profile.role ?? null);
+            } else {
+              setUserProfile(null);
+              setRole(null);
+            }
+            setLoading(false);
+          },
+          (err) => {
+            console.error('AuthContext: failed to listen to user profile', err);
+            setAuthError(err.message);
             setUserProfile(null);
             setRole(null);
+            setLoading(false);
           }
-        } catch (err) {
-          console.error('AuthContext: failed to fetch user profile', err);
-          setAuthError(err.message);
-          setUserProfile(null);
-          setRole(null);
-        }
+        );
       } else {
         // No authenticated user
         setCurrentUser(null);
         setUserProfile(null);
         setRole(null);
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
-    // Cleanup listener on unmount
-    return () => unsubscribe();
+    // Cleanup listeners on unmount
+    return () => {
+      unsubscribeAuth();
+      if (unsubSnapshot) unsubSnapshot();
+    };
   }, []);
+
+  const reloadUserProfile = async () => {
+    if (!currentUser) return;
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const profile = { id: userDocSnap.id, ...userDocSnap.data() };
+        setUserProfile(profile);
+        setRole(profile.role ?? null);
+      }
+    } catch (err) {
+      console.error('AuthContext: manual reload failed', err);
+    }
+  };
 
   const value = {
     currentUser,
@@ -71,6 +98,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     authError,
     isAuthenticated: !!currentUser,
+    reloadUserProfile,
   };
 
   return (

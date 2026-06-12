@@ -313,7 +313,7 @@ const AdminDashboard = () => {
         <header className="ad-header">
           <div>
             <span className="ad-eyebrow">
-              <Sparkles size={13} /> AntiGravity Operations
+              <Sparkles size={13} /> QueueLess Operations
             </span>
             <h1 className="ad-title">Super Admin Dashboard</h1>
             <p className="ad-subtitle">Real-time platform stats, venue validation, and role directory monitoring.</p>

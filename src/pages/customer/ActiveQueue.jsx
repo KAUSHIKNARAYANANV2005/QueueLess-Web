@@ -60,13 +60,26 @@ const PAYMENT_LABELS = {
 
 const formatDateTime = (ts) => {
   if (!ts) return '—';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }) + ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  try {
+    let d;
+    if (typeof ts.toDate === 'function') {
+      d = ts.toDate();
+    } else if (ts.seconds !== undefined) {
+      d = new Date(ts.seconds * 1000);
+    } else {
+      d = new Date(ts);
+    }
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }) + ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  } catch (err) {
+    console.error("ActiveQueue formatDateTime error:", err);
+    return '—';
+  }
 };
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
@@ -91,6 +104,19 @@ const ActiveQueue = () => {
   const [cancelError, setCancelError] = useState(null);
   const [cancelled, setCancelled]     = useState(false);
 
+  // ─── Derived: live queue position ────────────────────────────────────────
+  const livePosition = React.useMemo(() => {
+    if (!queueDoc?.items || !resolvedBookingId) return null;
+    const item = queueDoc.items.find((it) => it.bookingId === resolvedBookingId);
+    return item?.position ?? null;
+  }, [queueDoc, resolvedBookingId]);
+
+  const liveWait = React.useMemo(() => {
+    if (!queueDoc?.items || !resolvedBookingId) return null;
+    const item = queueDoc.items.find((it) => it.bookingId === resolvedBookingId);
+    return item?.waitMinutes ?? null;
+  }, [queueDoc, resolvedBookingId]);
+
   // ─── Step 1: Resolve bookingId ──────────────────────────────────────────
   useEffect(() => {
     if (bookingId) {
@@ -105,19 +131,24 @@ const ActiveQueue = () => {
       return;
     }
 
-    // Query for latest active booking
+    // Query for latest active booking without orderBy to avoid requiring a composite index
     const q = query(
       collection(db, 'bookings'),
       where('customerId', '==', currentUser.uid),
-      where('status', 'in', ['pending', 'confirmed', 'active']),
-      orderBy('createdAt', 'desc'),
-      limit(1)
+      where('status', 'in', ['pending', 'confirmed', 'active'])
     );
 
     getDocs(q)
       .then((snap) => {
         if (!snap.empty) {
-          setResolvedBookingId(snap.docs[0].id);
+          const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          // Sort client-side by createdAt desc
+          docs.sort((a, b) => {
+            const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+            const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+            return timeB - timeA;
+          });
+          setResolvedBookingId(docs[0].id);
         } else {
           setLoading(false);
         }
@@ -249,18 +280,7 @@ const ActiveQueue = () => {
     );
   }, [currentUser, booking, businessDoc, livePosition, liveWait, notifTriggered]);
 
-  // ─── Derived: live queue position ────────────────────────────────────────
-  const livePosition = React.useMemo(() => {
-    if (!queueDoc?.items || !resolvedBookingId) return null;
-    const item = queueDoc.items.find((it) => it.bookingId === resolvedBookingId);
-    return item?.position ?? null;
-  }, [queueDoc, resolvedBookingId]);
 
-  const liveWait = React.useMemo(() => {
-    if (!queueDoc?.items || !resolvedBookingId) return null;
-    const item = queueDoc.items.find((it) => it.bookingId === resolvedBookingId);
-    return item?.waitMinutes ?? null;
-  }, [queueDoc, resolvedBookingId]);
 
   // ─── Cancel Booking ──────────────────────────────────────────────────────
   const handleCancel = useCallback(async () => {

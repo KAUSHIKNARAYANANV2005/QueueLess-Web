@@ -92,7 +92,7 @@ const Login = () => {
         <div className="login-header">
           <div className="badge-glow">
             <Sparkles size={14} className="sparkle-icon" />
-            <span>AntiGravity Web Portal</span>
+            <span>QueueLess Portal</span>
           </div>
           <h2 className="login-title">Welcome Back</h2>
           <p className="login-subtitle">Sign in to manage your bookings and virtual queues.</p>

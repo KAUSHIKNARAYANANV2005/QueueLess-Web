@@ -27,7 +27,7 @@ const PlaceholderPage = ({ title = 'Page', phase = '?' }) => {
           <span className="ph-phase-badge">Phase {phase}</span>
           <h2 className="ph-title">{title}</h2>
           <p className="ph-desc">
-            This page is scheduled for Phase {phase} of the AntiGravity migration plan.
+            This page is scheduled for Phase {phase} of the QueueLess migration plan.
             Route guards and role-based access are already active — this placeholder
             confirms the route is correctly protected.
           </p>

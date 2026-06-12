@@ -1,0 +1,22 @@
+{
+  "name": "queueless-web-tests",
+  "version": "1.0.0",
+  "description": "E2E Web Selenium Testing Framework for QueueLess",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test:web": "cross-env HEADLESS=true mocha tests/**/*.test.js --timeout 60000 --exit",
+    "test:web:headed": "cross-env HEADLESS=false mocha tests/**/*.test.js --timeout 60000 --exit",
+    "test:smoke": "cross-env HEADLESS=true mocha tests/01-public-routes.test.js --timeout 60000 --exit",
+    "report": "node utils/reportManager.js --view"
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.4.5",
+    "selenium-webdriver": "^4.20.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "mocha": "^10.4.0"
+  }
+}

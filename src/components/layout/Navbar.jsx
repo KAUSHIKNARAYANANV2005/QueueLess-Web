@@ -15,6 +15,7 @@ const Navbar = ({ onMenuClick }) => {
   const { clearBookingState } = useBooking();
   const [unreadCount, setUnreadCount] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   // Subscribe to unread notifications count in real-time
   useEffect(() => {
@@ -46,7 +47,17 @@ const Navbar = ({ onMenuClick }) => {
     }
   };
 
-  const avatarSrc = userProfile?.profileImage || currentUser?.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80';
+  // Reset img error whenever the profile changes so new URLs are tried fresh
+  useEffect(() => { setImgError(false); }, [userProfile?.profileImage, userProfile?.photoURL]);
+
+  const avatarSrc = userProfile?.profileImage || userProfile?.photoURL || currentUser?.photoURL || null;
+  const displayName = userProfile?.name || currentUser?.displayName || 'User';
+  const initials = displayName
+    .split(' ')
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   return (
     <header className="navbar-container">
@@ -86,10 +97,21 @@ const Navbar = ({ onMenuClick }) => {
               aria-label="Toggle profile menu"
               style={{ border: '2px solid var(--primary)', background: 'none', cursor: 'pointer' }}
             >
-              <img 
-                src={avatarSrc} 
-                alt="User avatar" 
-              />
+              {avatarSrc && !imgError ? (
+                <img
+                  src={avatarSrc}
+                  alt="User avatar"
+                  onError={() => setImgError(true)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                />
+              ) : (
+                <span style={{
+                  width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', borderRadius: '50%', fontSize: '0.85rem',
+                  fontWeight: 700, color: 'var(--primary)',
+                  background: 'var(--primary-glass, rgba(99,102,241,0.15))'
+                }}>{initials}</span>
+              )}
             </button>
             
             {dropdownOpen && (

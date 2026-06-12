@@ -625,7 +625,7 @@ const ReportsExport = () => {
 
         {/* ── Print-Friendly Summary Block (only visible when printing) ─────── */}
         <section className="rp-print-summary">
-          <h2>AntiGravity Platform Report</h2>
+          <h2>QueueLess Platform Report</h2>
           <p className="rp-print-meta">
             Generated: {new Date().toLocaleString('en-IN')} &nbsp;|&nbsp;
             Range: {dateFrom || '—'} → {dateTo || '—'} &nbsp;|&nbsp;
