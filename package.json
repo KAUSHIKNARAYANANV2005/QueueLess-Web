@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test": "npm run test:web",
     "test:web": "npm --prefix testing/web-tests run test:web",
     "test:web:headed": "npm --prefix testing/web-tests run test:web:headed",
     "report": "npm --prefix testing/web-tests run report"
