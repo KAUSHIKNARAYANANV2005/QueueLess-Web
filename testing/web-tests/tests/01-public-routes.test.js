@@ -9,13 +9,25 @@ describe('Public Routes E2E Tests', function() {
   let basePage;
 
   before(async function() {
-    driver = await createDriver();
+    driver = global.sharedDriver || await createDriver();
     basePage = new BasePage(driver);
+    
+    // Clear cookies/localStorage to guarantee a clean guest state for public routes tests
+    try {
+      await basePage.navigate('/');
+      await driver.executeScript('window.localStorage.clear();');
+      await driver.executeScript('window.sessionStorage.clear();');
+      await driver.manage().deleteAllCookies();
+    } catch (err) {
+      // Ignore if session clearing fails
+    }
   });
 
   after(async function() {
     if (driver) {
+      if (!global.sharedDriver) {
       await driver.quit();
+    }
     }
     
   });

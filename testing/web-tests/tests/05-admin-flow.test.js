@@ -13,14 +13,16 @@ describe('Admin Flow E2E Tests', function() {
 
   before(async function() {
     this.timeout(60000);
-    driver = await createDriver();
+    driver = global.sharedDriver || await createDriver();
     loginPage = new LoginPage(driver);
     adminPage = new AdminPage(driver);
   });
 
   after(async function() {
     if (driver) {
+      if (!global.sharedDriver) {
       await driver.quit();
+    }
     }
     
   });

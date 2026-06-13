@@ -15,13 +15,15 @@ describe('Deployment & Production Readiness Tests', function() {
   let basePage;
 
   before(async function() {
-    driver = await createDriver();
+    driver = global.sharedDriver || await createDriver();
     basePage = new BasePage(driver);
   });
 
   after(async function() {
     if (driver) {
+      if (!global.sharedDriver) {
       await driver.quit();
+    }
     }
     
   });

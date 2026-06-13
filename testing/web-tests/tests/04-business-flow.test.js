@@ -13,14 +13,16 @@ describe('Business Flow & Management E2E Tests', function() {
 
   before(async function() {
     this.timeout(60000);
-    driver = await createDriver();
+    driver = global.sharedDriver || await createDriver();
     loginPage = new LoginPage(driver);
     bizPage = new BusinessDashboardPage(driver);
   });
 
   after(async function() {
     if (driver) {
+      if (!global.sharedDriver) {
       await driver.quit();
+    }
     }
     
   });
