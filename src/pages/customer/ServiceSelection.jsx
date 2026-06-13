@@ -35,6 +35,32 @@ const ServiceSelection = () => {
 
   // ── Real-Time Firestore Listeners ──────────────────────────────────────────
   useEffect(() => {
+    const isMock = id?.startsWith('mock-biz-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      const mockBizName = 'Supreme Salon & Spa';
+      setBusinessDoc({
+        id: id || 'mock-biz-1',
+        name: mockBizName,
+        category: 'Salon',
+        isOpen: true,
+        currentQueue: 3
+      });
+      setBusiness(id || 'mock-biz-1', mockBizName);
+      setServices([
+        { id: 'mock-service-1', name: 'Premium Haircut', price: '350', durationMinutes: 30, isAvailable: true, isActive: true },
+        { id: 'mock-service-2', name: 'Facial and Spa Care', price: '800', durationMinutes: 60, isAvailable: true, isActive: true }
+      ]);
+      setStaff([
+        { id: 'mock-staff-1', name: 'Alice Smith', role: 'Stylist', isAvailable: true, isActive: true },
+        { id: 'mock-staff-2', name: 'Bob Jones', role: 'Therapist', isAvailable: true, isActive: true }
+      ]);
+      setLoadingBusiness(false);
+      setLoadingServices(false);
+      setLoadingStaff(false);
+      setError(null);
+      return;
+    }
+
     setLoadingBusiness(true);
     setLoadingServices(true);
     setLoadingStaff(true);

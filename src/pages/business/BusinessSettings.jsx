@@ -162,6 +162,12 @@ const BusinessSettings = () => {
   // ─── Step 1: Resolve businessId from ownerId ─────────────────────────────
   useEffect(() => {
     if (!currentUser) return;
+
+    if (currentUser.uid && currentUser.uid.startsWith('mock-')) {
+      setBusinessId('mock-business-id');
+      return;
+    }
+
     const q = query(
       collection(db, 'businesses'),
       where('ownerId', '==', currentUser.uid),
@@ -186,6 +192,33 @@ const BusinessSettings = () => {
   // ─── Step 2: Real-time listener for the business document ────────────────
   useEffect(() => {
     if (!businessId) return;
+
+    if (businessId === 'mock-business-id') {
+      setFormState({
+        name: 'Mock Merchant Salon',
+        category: 'Salon',
+        description: 'A premium salon experience for testing.',
+        address: '123 Test Street, Developer City',
+        phone: '1234567890',
+        isOpen: true,
+        logoImage: '',
+        coverImage: '',
+        lat: '12.971598',
+        lng: '77.594562',
+        hours: {
+          Monday: { isOpen: true, start: '09:00 AM', end: '06:00 PM' },
+          Tuesday: { isOpen: true, start: '09:00 AM', end: '06:00 PM' },
+          Wednesday: { isOpen: true, start: '09:00 AM', end: '06:00 PM' },
+          Thursday: { isOpen: true, start: '09:00 AM', end: '06:00 PM' },
+          Friday: { isOpen: true, start: '09:00 AM', end: '06:00 PM' },
+          Saturday: { isOpen: true, start: '09:00 AM', end: '06:00 PM' },
+          Sunday: { isOpen: false, start: '09:00 AM', end: '06:00 PM' },
+        },
+      });
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     const docRef = doc(db, 'businesses', businessId);
     const unsub = onSnapshot(
@@ -419,6 +452,12 @@ const BusinessSettings = () => {
 
     setSaving(true);
     try {
+      if (businessId.startsWith('mock-')) {
+        showToast('Settings saved successfully!');
+        setSaving(false);
+        return;
+      }
+
       // Format hours map back to key-value string pairs
       const formattedHours = {};
       DAYS_OF_WEEK.forEach((day) => {

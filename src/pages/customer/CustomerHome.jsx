@@ -169,6 +169,48 @@ const CustomerHome = () => {
     setLoading(true);
     setError(null);
 
+    const isMock = localStorage.getItem('mockUser') || userProfile?.id?.startsWith('mock-');
+    if (isMock) {
+      const mockBusinesses = [
+        {
+          id: 'mock-biz-1',
+          name: 'Supreme Salon & Spa',
+          category: 'Salon',
+          description: 'Premium haircare, styling, and wellness treatments.',
+          address: '123 Style Boulevard, Glamour City',
+          phone: '1234567890',
+          rating: 4.8,
+          reviewCount: 24,
+          currentQueue: 3,
+          isOpen: true,
+          hours: {
+            Monday: { open: '09:00', close: '21:00', isOpen: true },
+            Tuesday: { open: '09:00', close: '21:00', isOpen: true },
+            Wednesday: { open: '09:00', close: '21:00', isOpen: true },
+            Thursday: { open: '09:00', close: '21:00', isOpen: true },
+            Friday: { open: '09:00', close: '21:00', isOpen: true },
+            Saturday: { open: '09:00', close: '21:00', isOpen: true },
+            Sunday: { open: '09:00', close: '21:00', isOpen: true }
+          }
+        },
+        {
+          id: 'mock-biz-2',
+          name: 'City Health Clinic',
+          category: 'Clinic',
+          description: 'General outpatient medical consultations and diagnostics.',
+          address: '456 Wellness Avenue, Health Town',
+          phone: '9876543210',
+          rating: 4.5,
+          reviewCount: 15,
+          currentQueue: 1,
+          isOpen: true
+        }
+      ];
+      setBusinesses(mockBusinesses);
+      setLoading(false);
+      return;
+    }
+
     const q = query(collection(db, 'businesses'), orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(
@@ -187,7 +229,7 @@ const CustomerHome = () => {
 
     // Cleanup listener on unmount
     return () => unsubscribe();
-  }, []);
+  }, [userProfile]);
 
   // ── Filtering + searching ─────────────────────────────────────────────────
   const filteredBusinesses = businesses.filter((biz) => {

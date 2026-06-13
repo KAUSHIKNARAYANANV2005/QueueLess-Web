@@ -53,6 +53,13 @@ before(async function() {
   console.log('[TestSetup] Initializing shared WebDriver instance...');
   global.sharedDriver = await createDriver();
   console.log('[TestSetup] Shared WebDriver initialized. Starting E2E tests...\n');
+  
+  try {
+    await global.sharedDriver.get('http://localhost:5173/');
+    await global.sharedDriver.executeScript('localStorage.clear(); sessionStorage.clear();');
+  } catch (err) {
+    // Ignore
+  }
 });
 
 after(async function() {

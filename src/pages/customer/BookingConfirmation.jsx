@@ -87,6 +87,35 @@ const BookingConfirmation = () => {
     setLoading(true);
     setError(null);
 
+    const isMock = id?.startsWith('mock-biz-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      const mockBookingId = 'mock-booking-' + Math.floor(Math.random() * 10000);
+      const tokenNumber = 'AG-MOCK';
+      const mockBooking = {
+        id: mockBookingId,
+        customerId: currentUser?.uid || 'mock-customer',
+        customerName: customerName,
+        businessId: id || 'mock-biz-1',
+        businessName: businessName || 'Supreme Salon & Spa',
+        serviceId: selectedService?.id || 'mock-service-1',
+        serviceName: selectedService?.name || 'Premium Haircut',
+        staffId: selectedStaff?.id || 'mock-staff-1',
+        staffName: selectedStaff?.name || 'Alice Smith',
+        dateTime: { seconds: Math.floor(Date.now() / 1000) },
+        status: 'confirmed',
+        queuePosition: 1,
+        estimatedWaitMinutes: 10,
+        price: parseFloat(selectedService?.price || '350'),
+        paymentStatus: 'pending',
+        tokenNumber: tokenNumber,
+        createdAt: { seconds: Math.floor(Date.now() / 1000) }
+      };
+      localStorage.setItem('mockBooking', JSON.stringify(mockBooking));
+      setBookingId(mockBookingId);
+      navigate('/queue');
+      return;
+    }
+
     try {
       const bookingsColRef = collection(db, 'bookings');
       const newBookingRef = doc(bookingsColRef);

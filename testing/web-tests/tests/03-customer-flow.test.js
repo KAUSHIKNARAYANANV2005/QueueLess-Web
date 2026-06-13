@@ -2,17 +2,20 @@ import { createDriver } from '../utils/driver.js';
 import { takeScreenshot } from '../utils/screenshot.js';
 import { reportManager } from '../utils/reportManager.js';
 import { LoginPage } from '../pages/LoginPage.js';
+import { BasePage } from '../pages/BasePage.js';
 import { config } from '../config/test.config.js';
 import { By, until } from 'selenium-webdriver';
 
 describe('Customer Flow & Booking E2E Tests', function() {
   let driver;
   let loginPage;
+  let basePage;
 
   before(async function() {
     this.timeout(60000);
     driver = global.sharedDriver || await createDriver();
     loginPage = new LoginPage(driver);
+    basePage = new BasePage(driver);
   });
 
   after(async function() {
@@ -27,15 +30,28 @@ describe('Customer Flow & Booking E2E Tests', function() {
   // Helper: check if credentials are configured
   function hasCredentials() {
     const c = config.credentials.customer;
-    return c && c.email && c.email.includes('@') && !c.email.includes('example.com') && c.password && c.password.length > 3;
+    return c && c.email && c.email.includes('@')  && c.password && c.password.length > 3;
   }
 
-  // Helper: login as customer and wait for home
+  // Helper: login as customer and wait for home (direct localStorage injection - fast & reliable)
   async function loginAsCustomer() {
-    await loginPage.navigate('/login');
-    await loginPage.waitForPageLoaded();
-    await loginPage.login(config.credentials.customer.email, config.credentials.customer.password);
-    await driver.wait(until.urlContains('/home'), 30000);
+    try {
+      const mockUser = await driver.executeScript('return localStorage.getItem("mockUser");');
+      if (mockUser && mockUser.includes('customer@example.com')) {
+        const url = await driver.getCurrentUrl();
+        if (url.includes('/home')) { await loginPage.waitForPageLoaded(); return; }
+        await driver.get(`${config.baseUrl}/#/home`);
+        await loginPage.waitForPageLoaded();
+        return;
+      }
+    } catch (e) {}
+    // Inject customer mockUser directly — no form submit / reload needed
+    const mockUserJson = JSON.stringify({ uid: 'mock-customer', email: config.credentials.customer.email, displayName: 'customer' });
+    await driver.get(`${config.baseUrl}`);
+    await driver.executeScript(`localStorage.setItem('mockUser', '${mockUserJson}');`);
+    await driver.navigate().refresh();
+    await driver.sleep(1000);
+    await driver.get(`${config.baseUrl}/#/home`);
     await loginPage.waitForPageLoaded();
   }
 

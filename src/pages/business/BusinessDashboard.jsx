@@ -126,6 +126,52 @@ const BusinessDashboard = () => {
   useEffect(() => {
     if (!currentUser) return;
 
+    if (currentUser.uid && currentUser.uid.startsWith('mock-')) {
+      setBusiness({
+        id: 'mock-business-id',
+        name: 'Mock Merchant Salon',
+        category: 'Salon',
+        description: 'A premium salon experience for testing.',
+        address: '123 Test Street, Developer City',
+        lat: 12.971598,
+        lng: 77.594562,
+        phone: '1234567890',
+        rating: 4.8,
+        reviewCount: 1,
+        isVerified: true,
+        plan: 'premium',
+        coverImage: null,
+        logoImage: null,
+        hours: null,
+        ownerId: currentUser.uid,
+        currentQueue: 0,
+        isOpen: true,
+        createdAt: new Date(),
+      });
+      setQueueDoc({
+        id: 'mock-business-id',
+        totalWaiting: 2,
+        currentServingToken: 'T-01',
+        currentServingName: 'John Doe',
+        currentServingService: 'Haircut',
+        items: [
+          { bookingId: 'mock-b1', position: 1, customerName: 'Alice Smith', serviceName: 'Shaving', waitMinutes: 10 },
+          { bookingId: 'mock-b2', position: 2, customerName: 'Bob Jones', serviceName: 'Facial', waitMinutes: 20 },
+        ],
+      });
+      setBookings([
+        { id: 'mock-bk1', customerName: 'John Doe', serviceName: 'Haircut', status: 'served', price: 500, createdAt: new Date() },
+        { id: 'mock-bk2', customerName: 'Alice Smith', serviceName: 'Shaving', status: 'active', price: 300, createdAt: new Date() },
+        { id: 'mock-bk3', customerName: 'Bob Jones', serviceName: 'Facial', status: 'active', price: 800, createdAt: new Date() },
+      ]);
+      setReviews([
+        { id: 'mock-rv1', customerName: 'Charlie Brown', rating: 5, comment: 'Excellent mock service!' },
+      ]);
+      setResolvingBiz(false);
+      setLoadingData(false);
+      return;
+    }
+
     const q = query(
       collection(db, 'businesses'),
       where('ownerId', '==', currentUser.uid),
@@ -152,75 +198,118 @@ const BusinessDashboard = () => {
       });
   }, [currentUser]);
 
-  // ── Step 2: Real-time listener on businesses/{businessId} ───────────────
+  // ── Step 1, 2, 3, 4, 5: Listeners ──────────────────────────────────────────
   useEffect(() => {
-    if (!business?.id) return;
-
-    const unsub = onSnapshot(
-      doc(db, 'businesses', business.id),
-      (snap) => {
-        if (snap.exists()) {
-          setBusiness({ id: snap.id, ...snap.data() });
+    const isMock = currentUser?.uid?.startsWith('mock-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      setBusiness({
+        id: 'mock-biz-1',
+        name: 'Supreme Salon & Spa',
+        category: 'Salon',
+        description: 'Premium haircare, styling, and wellness treatments.',
+        address: '123 Style Boulevard, Glamour City',
+        phone: '1234567890',
+        rating: 4.8,
+        reviewCount: 24,
+        currentQueue: 3,
+        isOpen: true,
+        hours: {
+          Monday: '09:00 AM - 09:00 PM',
+          Tuesday: '09:00 AM - 09:00 PM',
+          Wednesday: '09:00 AM - 09:00 PM',
+          Thursday: '09:00 AM - 09:00 PM',
+          Friday: '09:00 AM - 09:00 PM',
+          Saturday: '09:00 AM - 09:00 PM',
+          Sunday: '09:00 AM - 09:00 PM'
         }
-      },
-      (err) => console.error('Dashboard: business listener error', err)
-    );
-    return () => unsub();
-  }, [business?.id]);
+      });
+      setQueueDoc({
+        businessId: 'mock-biz-1',
+        totalWaiting: 3,
+        currentServingToken: 'AG-A1',
+        currentServingName: 'John',
+        currentServingService: 'Premium Haircut',
+        avgWaitMinutes: 10,
+        items: [
+          { bookingId: 'mock-booking-2', customerName: 'David', serviceName: 'Manicure', position: 1, status: 'waiting', waitMinutes: 10 },
+          { bookingId: 'mock-booking-3', customerName: 'Sophia', serviceName: 'Facial', position: 2, status: 'waiting', waitMinutes: 20 }
+        ]
+      });
+      setBookings([
+        { id: 'mock-booking-1', customerName: 'John', serviceName: 'Premium Haircut', status: 'served', dateTime: new Date(), price: 350, paymentStatus: 'paid', tokenNumber: 'AG-A1' },
+        { id: 'mock-booking-2', customerName: 'David', serviceName: 'Manicure', status: 'waiting', dateTime: new Date(), price: 200, paymentStatus: 'pending', tokenNumber: 'AG-A2' },
+        { id: 'mock-booking-3', customerName: 'Sophia', serviceName: 'Facial', status: 'waiting', dateTime: new Date(), price: 800, paymentStatus: 'pending', tokenNumber: 'AG-A3' }
+      ]);
+      setReviews([
+        { id: 'mock-review-1', customerName: 'John Doe', rating: 5, text: 'Great haircut experience!' },
+        { id: 'mock-review-2', customerName: 'Mary Jane', rating: 4, text: 'Polite staff and fast service.' }
+      ]);
+      setResolvingBiz(false);
+      setLoadingData(false);
+      return;
+    }
 
-  // ── Step 3: Real-time listener on queues/{businessId} ──────────────────
-  useEffect(() => {
-    if (!business?.id) return;
+    if (!currentUser) return;
 
-    const unsub = onSnapshot(
-      doc(db, 'queues', business.id),
-      (snap) => {
-        setQueueDoc(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-      },
-      (err) => console.error('Dashboard: queue listener error', err)
-    );
-    return () => unsub();
-  }, [business?.id]);
+    // Real-time listener for standard user logins
+    let unsubBiz = null;
+    let unsubQueue = null;
+    let unsubBookings = null;
+    let unsubReviews = null;
 
-  // ── Step 4: Real-time listener on bookings where businessId == id ───────
-  useEffect(() => {
-    if (!business?.id) return;
-
-    const q = query(
-      collection(db, 'bookings'),
-      where('businessId', '==', business.id)
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        setBookings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoadingData(false);
-      },
-      (err) => {
-        console.error('Dashboard: bookings listener error', err);
-        setLoadingData(false);
-      }
-    );
-    return () => unsub();
-  }, [business?.id]);
-
-  // ── Step 5: Real-time listener on reviews where businessId == id ────────
-  useEffect(() => {
-    if (!business?.id) return;
-
-    const q = query(
-      collection(db, 'reviews'),
-      where('businessId', '==', business.id)
+    const qBiz = query(
+      collection(db, 'businesses'),
+      where('ownerId', '==', currentUser.uid),
+      limit(1)
     );
 
-    const unsub = onSnapshot(
-      q,
-      (snap) => setReviews(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (err) => console.error('Dashboard: reviews listener error', err)
-    );
-    return () => unsub();
-  }, [business?.id]);
+    getDocs(qBiz)
+      .then((snap) => {
+        if (snap.empty) {
+          setError('No business registered under this account.');
+          setResolvingBiz(false);
+          return;
+        }
+
+        const bId = snap.docs[0].id;
+        setBusiness({ id: bId, ...snap.docs[0].data() });
+        setResolvingBiz(false);
+
+        // Subscribes
+        unsubBiz = onSnapshot(doc(db, 'businesses', bId), (s) => {
+          if (s.exists()) setBusiness({ id: s.id, ...s.data() });
+        });
+
+        unsubQueue = onSnapshot(doc(db, 'queues', bId), (s) => {
+          setQueueDoc(s.exists() ? { id: s.id, ...s.data() } : null);
+        });
+
+        unsubBookings = onSnapshot(
+          query(collection(db, 'bookings'), where('businessId', '==', bId)),
+          (s) => {
+            setBookings(s.docs.map(d => ({ id: d.id, ...d.data() })));
+            setLoadingData(false);
+          }
+        );
+
+        unsubReviews = onSnapshot(
+          query(collection(db, 'reviews'), where('businessId', '==', bId)),
+          (s) => setReviews(s.docs.map(d => ({ id: d.id, ...d.data() })))
+        );
+      })
+      .catch((err) => {
+        console.error('Dashboard error:', err);
+        setError('Failed to load business profile.');
+        setResolvingBiz(false);
+      });
+
+    return () => {
+      if (unsubBiz) unsubBiz();
+      if (unsubQueue) unsubQueue();
+      if (unsubBookings) unsubBookings();
+      if (unsubReviews) unsubReviews();
+    };
+  }, [currentUser]);
 
   // ── Derived metrics ─────────────────────────────────────────────────────
   const metrics = useMemo(() => {

@@ -117,8 +117,43 @@ const ActiveQueue = () => {
     return item?.waitMinutes ?? null;
   }, [queueDoc, resolvedBookingId]);
 
-  // ─── Step 1: Resolve bookingId ──────────────────────────────────────────
+  // ─── Step 1, 2, 3, 4: Resolve bookingId and Listen ──────────────────────────
   useEffect(() => {
+    const isMock = bookingId?.startsWith('mock-') || localStorage.getItem('mockBooking') || currentUser?.uid?.startsWith('mock-');
+    if (isMock) {
+      const saved = localStorage.getItem('mockBooking');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setResolvedBookingId(parsed.id);
+        setBooking(parsed);
+        setQueueDoc({
+          businessId: parsed.businessId,
+          items: [
+            {
+              bookingId: parsed.id,
+              customerName: parsed.customerName,
+              serviceName: parsed.serviceName,
+              position: 1,
+              status: 'waiting',
+              waitMinutes: 10
+            }
+          ]
+        });
+        setBusinessDoc({
+          id: parsed.businessId,
+          name: parsed.businessName,
+          lat: 40.7128,
+          lng: -74.0060
+        });
+      } else {
+        setBooking(null);
+        setQueueDoc(null);
+      }
+      setResolving(false);
+      setLoading(false);
+      return;
+    }
+
     if (bookingId) {
       setResolvedBookingId(bookingId);
       setResolving(false);
@@ -162,9 +197,10 @@ const ActiveQueue = () => {
       });
   }, [bookingId, currentUser]);
 
-  // ─── Step 2: Listen to bookings/{bookingId} ──────────────────────────────
+  // Real-time listener for non-mock sessions
   useEffect(() => {
-    if (!resolvedBookingId || resolving) return;
+    const isMock = resolvedBookingId?.startsWith('mock-') || localStorage.getItem('mockBooking');
+    if (isMock || !resolvedBookingId || resolving) return;
 
     const unsub = onSnapshot(
       doc(db, 'bookings', resolvedBookingId),
@@ -187,9 +223,10 @@ const ActiveQueue = () => {
     return () => unsub();
   }, [resolvedBookingId, resolving]);
 
-  // ─── Step 3: Listen to queues/{businessId} ───────────────────────────────
+  // Live queue listener for non-mock sessions
   useEffect(() => {
-    if (!booking?.businessId) return;
+    const isMock = booking?.id?.startsWith('mock-') || localStorage.getItem('mockBooking');
+    if (isMock || !booking?.businessId) return;
 
     const unsub = onSnapshot(
       doc(db, 'queues', booking.businessId),
@@ -208,10 +245,10 @@ const ActiveQueue = () => {
     return () => unsub();
   }, [booking?.businessId]);
 
-  // ─── Step 4: Listen to businesses/{businessId} for coordinates ───────────
-  const [businessDoc, setBusinessDoc] = useState(null);
+  // Live business coordinates listener for non-mock sessions
   useEffect(() => {
-    if (!booking?.businessId) return;
+    const isMock = booking?.id?.startsWith('mock-') || localStorage.getItem('mockBooking');
+    if (isMock || !booking?.businessId) return;
 
     const unsub = onSnapshot(
       doc(db, 'businesses', booking.businessId),
@@ -293,6 +330,17 @@ const ActiveQueue = () => {
 
     setCancelling(true);
     setCancelError(null);
+
+    const isMock = resolvedBookingId?.startsWith('mock-') || localStorage.getItem('mockBooking');
+    if (isMock) {
+      localStorage.removeItem('mockBooking');
+      setBooking(null);
+      setQueueDoc(null);
+      setCancelled(true);
+      clearBookingState();
+      setCancelling(false);
+      return;
+    }
 
     try {
       const bookingRef = doc(db, 'bookings', resolvedBookingId);

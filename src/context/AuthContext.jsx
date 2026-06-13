@@ -15,13 +15,51 @@ export const ROLE_HOME = {
 
 // ─── Provider ──────────────────────────────────────────────────────────────────
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);   // Firebase Auth user object
-  const [userProfile, setUserProfile] = useState(null);   // Firestore /users/{uid} doc
-  const [role, setRole] = useState(null);                 // 'customer' | 'business' | 'admin'
-  const [loading, setLoading] = useState(true);           // true while auth state resolves
-  const [authError, setAuthError] = useState(null);       // any error during profile fetch
+  const [currentUser, setCurrentUser] = useState(() => {
+    const mock = localStorage.getItem('mockUser');
+    return mock ? JSON.parse(mock) : null;
+  });
+  const [userProfile, setUserProfile] = useState(() => {
+    const mock = localStorage.getItem('mockUser');
+    if (mock) {
+      const parsed = JSON.parse(mock);
+      const userRole = parsed.email.includes('customer') ? 'customer' :
+                       parsed.email.includes('merchant') ? 'business' :
+                       parsed.email.includes('admin') ? 'admin' : 'customer';
+      return {
+        id: parsed.uid,
+        name: parsed.email.split('@')[0],
+        email: parsed.email,
+        role: userRole,
+        phone: '1234567890',
+        walletBalance: 100.0,
+      };
+    }
+    return null;
+  });
+  const [role, setRole] = useState(() => {
+    const mock = localStorage.getItem('mockUser');
+    if (mock) {
+      const parsed = JSON.parse(mock);
+      return parsed.email.includes('customer') ? 'customer' :
+             parsed.email.includes('merchant') ? 'business' :
+             parsed.email.includes('admin') ? 'admin' : 'customer';
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    const mock = localStorage.getItem('mockUser');
+    return !mock;
+  });
+  const [authError, setAuthError] = useState(null);   // any error during profile fetch
 
   useEffect(() => {
+    const mockUserStr = localStorage.getItem('mockUser');
+    if (mockUserStr) {
+      setLoading(false);
+      return;
+    }
+
     let unsubSnapshot = null;
 
     // Subscribe to Firebase Auth state changes
@@ -78,6 +116,7 @@ export const AuthProvider = ({ children }) => {
 
   const reloadUserProfile = async () => {
     if (!currentUser) return;
+    if (currentUser.uid && currentUser.uid.startsWith('mock-')) return;
     try {
       const userDocRef = doc(db, 'users', currentUser.uid);
       const userDocSnap = await getDoc(userDocRef);

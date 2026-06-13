@@ -12,7 +12,23 @@ export class BasePage {
       formattedPath = `/#${path}`;
     }
     const url = `${config.baseUrl}${formattedPath}`;
-    await this.driver.get(url);
+    
+    if (path.includes('/login')) {
+      try {
+        await this.driver.executeScript('localStorage.clear(); sessionStorage.clear();');
+      } catch (err) {
+        // Ignore if storage is not accessible on initial load
+      }
+      await this.driver.get(url);
+      try {
+        await this.driver.navigate().refresh();
+        await this.driver.sleep(1000);
+      } catch (err) {
+        // Ignore
+      }
+    } else {
+      await this.driver.get(url);
+    }
   }
 
   async waitForPageLoaded(timeout = 15000) {
@@ -40,6 +56,10 @@ export class BasePage {
     const element = await this.findElement(locator, timeout);
     await this.driver.wait(until.elementIsVisible(element), timeout);
     return element;
+  }
+
+  async waitForElement(locator, timeout = config.timeouts.explicit) {
+    return await this.waitForElementVisible(locator, timeout);
   }
 
   async click(locator, timeout = config.timeouts.explicit) {

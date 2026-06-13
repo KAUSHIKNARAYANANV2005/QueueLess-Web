@@ -87,6 +87,19 @@ const ManageStaff = () => {
   // ─── Step 1: Resolve businessId from ownerId ─────────────────────────────
   useEffect(() => {
     if (!currentUser) return;
+
+    if (currentUser.uid && currentUser.uid.startsWith('mock-')) {
+      setBusinessId('mock-business-id');
+      setBizName('Mock Merchant Salon');
+      setStaffList([
+        { id: 'mock-st1', name: 'John Barber', role: 'Barber', phone: '1234567890', isActive: true, createdAt: new Date() },
+        { id: 'mock-st2', name: 'Alice Stylist', role: 'Stylist', phone: '0987654321', isActive: true, createdAt: new Date() },
+      ]);
+      setResolvingBiz(false);
+      setLoadingStaff(false);
+      return;
+    }
+
     const q = query(
       collection(db, 'businesses'),
       where('ownerId', '==', currentUser.uid),
@@ -116,6 +129,7 @@ const ManageStaff = () => {
   // ─── Step 2: Real-time listener for staff subcollection ──────────────────
   useEffect(() => {
     if (!businessId) return;
+    if (businessId.startsWith('mock-')) return;
     const staffRef = collection(db, 'businesses', businessId, 'staff');
     const unsub = onSnapshot(
       staffRef,
@@ -204,19 +218,38 @@ const ManageStaff = () => {
         avatar: avatarUrl.trim() ? avatarUrl.trim() : '', // Duplicate field to support various schema formats
         isActive,
         isAvailable: isActive, // Maintain compatibility
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date(),
       };
+
+      if (businessId.startsWith('mock-')) {
+        const mockMember = {
+          id: editingMember ? editingMember.id : 'mock-st' + (staffList.length + 1),
+          ...staffData,
+          createdAt: new Date(),
+        };
+        if (editingMember) {
+          setStaffList(prev => prev.map(m => m.id === editingMember.id ? mockMember : m));
+          showToast('Staff member updated successfully.');
+        } else {
+          setStaffList(prev => [...prev, mockMember]);
+          showToast('New staff member added successfully.');
+        }
+        setIsModalOpen(false);
+        setSaving(false);
+        return;
+      }
 
       if (editingMember) {
         // Edit mode
         const docRef = doc(db, 'businesses', businessId, 'staff', editingMember.id);
-        await updateDoc(docRef, staffData);
+        await updateDoc(docRef, { ...staffData, updatedAt: serverTimestamp() });
         showToast('Staff member updated successfully.');
       } else {
         // Add mode
         const colRef = collection(db, 'businesses', businessId, 'staff');
         await addDoc(colRef, {
           ...staffData,
+          updatedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
         });
         showToast('New staff member added successfully.');
@@ -234,6 +267,11 @@ const ManageStaff = () => {
   const handleToggleStatus = async (member) => {
     if (!businessId) return;
     const newStatus = member.isActive === false ? true : false;
+    if (businessId.startsWith('mock-')) {
+      setStaffList(prev => prev.map(m => m.id === member.id ? { ...m, isActive: newStatus, isAvailable: newStatus } : m));
+      showToast(`${member.name} marked as ${newStatus ? 'active' : 'inactive'}.`);
+      return;
+    }
     try {
       const docRef = doc(db, 'businesses', businessId, 'staff', member.id);
       await updateDoc(docRef, {
@@ -255,6 +293,12 @@ const ManageStaff = () => {
 
   const handleDeleteConfirm = async () => {
     if (!businessId || !deleteConfirmId) return;
+    if (businessId.startsWith('mock-')) {
+      setStaffList(prev => prev.filter(m => m.id !== deleteConfirmId));
+      showToast('Staff member removed from directory.');
+      setDeleteConfirmId(null);
+      return;
+    }
     setDeleting(true);
     try {
       const docRef = doc(db, 'businesses', businessId, 'staff', deleteConfirmId);

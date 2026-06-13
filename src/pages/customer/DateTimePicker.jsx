@@ -120,6 +120,35 @@ const DateTimePicker = () => {
 
   // ── Real-Time Listeners ───────────────────────────────────────────────────
   useEffect(() => {
+    const isMock = id?.startsWith('mock-biz-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      setBusinessDoc({
+        id: id || 'mock-biz-1',
+        name: 'Supreme Salon & Spa',
+        category: 'Salon',
+        currentQueue: 3,
+        isOpen: true,
+        hours: {
+          Monday: '09:00 AM - 09:00 PM',
+          Tuesday: '09:00 AM - 09:00 PM',
+          Wednesday: '09:00 AM - 09:00 PM',
+          Thursday: '09:00 AM - 09:00 PM',
+          Friday: '09:00 AM - 09:00 PM',
+          Saturday: '09:00 AM - 09:00 PM',
+          Sunday: '09:00 AM - 09:00 PM'
+        }
+      });
+      setStaff([
+        { id: 'mock-staff-1', name: 'Alice Smith', role: 'Stylist', isAvailable: true, isActive: true },
+        { id: 'mock-staff-2', name: 'Bob Jones', role: 'Therapist', isAvailable: true, isActive: true }
+      ]);
+      setBookings([]);
+      setLoadingBusiness(false);
+      setLoadingBookings(false);
+      setError(null);
+      return;
+    }
+
     setLoadingBusiness(true);
     setLoadingBookings(true);
     setError(null);

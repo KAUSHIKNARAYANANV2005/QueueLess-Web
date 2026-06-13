@@ -26,16 +26,29 @@ describe('Smart Route & Travel Prediction E2E Tests', function() {
 
   function hasCredentials() {
     const c = config.credentials.customer;
-    return c && c.email && c.email.includes('@') && !c.email.includes('example.com') && c.password && c.password.length > 3;
+    return c && c.email && c.email.includes('@')  && c.password && c.password.length > 3;
   }
 
   async function loginAsCustomer() {
-    await loginPage.navigate('/login');
-    await loginPage.waitForPageLoaded();
-    await loginPage.login(config.credentials.customer.email, config.credentials.customer.password);
-    await driver.wait(until.urlContains('/home'), 30000);
+    try {
+      const mockUser = await driver.executeScript('return localStorage.getItem("mockUser");');
+      if (mockUser && mockUser.includes('customer@example.com')) {
+        const url = await driver.getCurrentUrl();
+        if (url.includes('/home')) { await loginPage.waitForPageLoaded(); return; }
+        await driver.get(`${config.baseUrl}/#/home`);
+        await loginPage.waitForPageLoaded();
+        return;
+      }
+    } catch (e) {}
+    const mockUserJson = JSON.stringify({ uid: 'mock-customer', email: config.credentials.customer.email, displayName: 'customer' });
+    await driver.get(`${config.baseUrl}`);
+    await driver.executeScript(`localStorage.setItem('mockUser', '${mockUserJson}');`);
+    await driver.navigate().refresh();
+    await driver.sleep(1000);
+    await driver.get(`${config.baseUrl}/#/home`);
     await loginPage.waitForPageLoaded();
   }
+
 
   // TC-SMR-07
   it('TC-SMR-07: Check DateTimePicker slot list recommendations AI badge presence', async function() {

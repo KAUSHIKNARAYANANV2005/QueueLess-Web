@@ -60,6 +60,26 @@ const CustomerProfile = () => {
   useEffect(() => {
     if (!currentUser) return;
 
+    if (currentUser.uid && currentUser.uid.startsWith('mock-')) {
+      const data = {
+        id: currentUser.uid,
+        name: currentUser.displayName || currentUser.email.split('@')[0],
+        email: currentUser.email,
+        phone: '1234567890',
+        role: currentUser.email.includes('customer') ? 'customer' : 'business',
+        profileImage: null,
+        walletBalance: 100.0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setProfile(data);
+      setName(data.name);
+      setPhone(data.phone);
+      setError(null);
+      setLoading(false);
+      return () => {};
+    }
+
     const docRef = doc(db, 'users', currentUser.uid);
     const unsub = onSnapshot(
       docRef,

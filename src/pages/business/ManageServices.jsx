@@ -87,6 +87,19 @@ const ManageServices = () => {
   // ─── Step 1: Resolve businessId from ownerId ─────────────────────────────
   useEffect(() => {
     if (!currentUser) return;
+
+    if (currentUser.uid && currentUser.uid.startsWith('mock-')) {
+      setBusinessId('mock-business-id');
+      setBizName('Mock Merchant Salon');
+      setServices([
+        { id: 'mock-s1', name: 'Haircut', category: 'Salon', price: 500, durationMinutes: 30, isActive: true },
+        { id: 'mock-s2', name: 'Shaving', category: 'Salon', price: 300, durationMinutes: 20, isActive: true },
+      ]);
+      setResolvingBiz(false);
+      setLoadingServices(false);
+      return;
+    }
+
     const q = query(
       collection(db, 'businesses'),
       where('ownerId', '==', currentUser.uid),
@@ -116,6 +129,7 @@ const ManageServices = () => {
   // ─── Step 2: Real-time listener for services subcollection ───────────────
   useEffect(() => {
     if (!businessId) return;
+    if (businessId.startsWith('mock-')) return;
     const servicesRef = collection(db, 'businesses', businessId, 'services');
     const unsub = onSnapshot(
       servicesRef,

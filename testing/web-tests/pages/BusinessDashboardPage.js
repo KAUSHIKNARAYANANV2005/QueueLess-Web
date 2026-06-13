@@ -4,7 +4,7 @@ import { BasePage } from './BasePage.js';
 export class BusinessDashboardPage extends BasePage {
   constructor(driver) {
     super(driver);
-    this.statsCards = By.css('.stat-card, .metric-card');
+    this.statsCards = By.css('.db-stat-card, .stat-card, .metric-card');
     
     // Services selectors
     this.addServiceBtn = By.css('.add-service-btn, button[class*="add"]');

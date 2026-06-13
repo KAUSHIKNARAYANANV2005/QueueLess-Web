@@ -112,6 +112,31 @@ const QueueManager = () => {
   // ── Step 1: Resolve businessId from ownerId ─────────────────────────────
   useEffect(() => {
     if (!currentUser) return;
+
+    if (currentUser.uid && currentUser.uid.startsWith('mock-')) {
+      setBusinessId('mock-business-id');
+      setBizName('Mock Merchant Salon');
+      setQueueDoc({
+        id: 'mock-business-id',
+        totalWaiting: 2,
+        currentServingToken: 'T-01',
+        currentServingName: 'John Doe',
+        currentServingService: 'Haircut',
+        items: [
+          { bookingId: 'mock-b1', position: 1, customerName: 'Alice Smith', serviceName: 'Shaving', waitMinutes: 10 },
+          { bookingId: 'mock-b2', position: 2, customerName: 'Bob Jones', serviceName: 'Facial', waitMinutes: 20 },
+        ],
+      });
+      setBookings([
+        { id: 'mock-bk1', tokenNumber: 'T-01', customerName: 'John Doe', serviceName: 'Haircut', status: 'served', price: 500, createdAt: new Date() },
+        { id: 'mock-bk2', tokenNumber: 'T-02', customerName: 'Alice Smith', serviceName: 'Shaving', status: 'active', price: 300, createdAt: new Date() },
+        { id: 'mock-bk3', tokenNumber: 'T-03', customerName: 'Bob Jones', serviceName: 'Facial', status: 'active', price: 800, createdAt: new Date() },
+      ]);
+      setResolvingBiz(false);
+      setLoadingData(false);
+      return;
+    }
+
     const q = query(
       collection(db, 'businesses'),
       where('ownerId', '==', currentUser.uid),
@@ -141,6 +166,7 @@ const QueueManager = () => {
   // ── Step 2: Real-time listener on queues/{businessId} ──────────────────
   useEffect(() => {
     if (!businessId) return;
+    if (businessId.startsWith('mock-')) return;
     const unsub = onSnapshot(
       doc(db, 'queues', businessId),
       (snap) => {
@@ -158,6 +184,7 @@ const QueueManager = () => {
   // ── Step 3: Real-time listener on bookings where businessId == id ───────
   useEffect(() => {
     if (!businessId) return;
+    if (businessId.startsWith('mock-')) return;
     const q = query(
       collection(db, 'bookings'),
       where('businessId', '==', businessId)
@@ -222,6 +249,25 @@ const QueueManager = () => {
       danger: false,
       onConfirm: async () => {
         setActionLoading(true);
+        if (businessId.startsWith('mock-')) {
+          setQueueDoc((prev) => {
+            const nextItem = prev.items[0];
+            const remaining = prev.items.slice(1);
+            return {
+              ...prev,
+              currentServingToken: nextItem.bookingId === 'mock-b1' ? 'T-02' : 'T-03',
+              currentServingName: nextItem.customerName,
+              currentServingService: nextItem.serviceName,
+              items: remaining.map((it, idx) => ({ ...it, position: idx + 1 })),
+              totalWaiting: remaining.length,
+            };
+          });
+          setBookings((prev) => prev.map((bk) => bk.id === nextItem.bookingId ? { ...bk, status: 'active' } : bk));
+          showSuccess(`Now serving ${nextItem.customerName}!`);
+          setActionLoading(false);
+          closeModal();
+          return;
+        }
         try {
           const queueRef = doc(db, 'queues', businessId);
           const bookingRef = doc(db, 'bookings', nextItem.bookingId);
@@ -301,6 +347,19 @@ const QueueManager = () => {
       danger: false,
       onConfirm: async () => {
         setActionLoading(true);
+        if (businessId.startsWith('mock-')) {
+          setQueueDoc((prev) => ({
+            ...prev,
+            currentServingToken: '',
+            currentServingName: '',
+            currentServingService: '',
+          }));
+          setBookings((prev) => prev.map((bk) => bk.tokenNumber === currentServingToken && bk.status === 'active' ? { ...bk, status: 'served' } : bk));
+          showSuccess('Customer marked as served.');
+          setActionLoading(false);
+          closeModal();
+          return;
+        }
         try {
           const queueRef = doc(db, 'queues', businessId);
 
@@ -343,9 +402,7 @@ const QueueManager = () => {
     });
   }, [businessId, currentServingToken, currentServingName, bookings]);
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ACTION: Skip Customer
-  // ══════════════════════════════════════════════════════════════════════════
+  // ─── Skip Customer ───
   const handleSkip = useCallback((item) => {
     if (!businessId) return;
     openModal({
@@ -355,6 +412,21 @@ const QueueManager = () => {
       danger: true,
       onConfirm: async () => {
         setActionLoading(true);
+        if (businessId.startsWith('mock-')) {
+          setQueueDoc((prev) => {
+            const without = prev.items.filter((it) => it.bookingId !== item.bookingId);
+            const recalculated = [...without, { ...item, position: without.length + 1 }].map((it, idx) => ({ ...it, position: idx + 1 }));
+            return {
+              ...prev,
+              items: recalculated,
+              totalWaiting: recalculated.length,
+            };
+          });
+          showSuccess(`${item.customerName} moved to end of queue.`);
+          setActionLoading(false);
+          closeModal();
+          return;
+        }
         try {
           const queueRef = doc(db, 'queues', businessId);
 
@@ -389,9 +461,7 @@ const QueueManager = () => {
     });
   }, [businessId]);
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ACTION: Remove Customer
-  // ══════════════════════════════════════════════════════════════════════════
+  // ─── Remove Customer ───
   const handleRemove = useCallback((item) => {
     if (!businessId) return;
     openModal({
@@ -401,6 +471,22 @@ const QueueManager = () => {
       danger: true,
       onConfirm: async () => {
         setActionLoading(true);
+        if (businessId.startsWith('mock-')) {
+          setQueueDoc((prev) => {
+            const remaining = prev.items.filter((it) => it.bookingId !== item.bookingId);
+            const recalculated = remaining.map((it, idx) => ({ ...it, position: idx + 1 }));
+            return {
+              ...prev,
+              items: recalculated,
+              totalWaiting: recalculated.length,
+            };
+          });
+          setBookings((prev) => prev.map((bk) => bk.id === item.bookingId ? { ...bk, status: 'cancelled' } : bk));
+          showSuccess(`${item.customerName} removed from queue.`);
+          setActionLoading(false);
+          closeModal();
+          return;
+        }
         try {
           const queueRef   = doc(db, 'queues', businessId);
           const bookingRef = doc(db, 'bookings', item.bookingId);

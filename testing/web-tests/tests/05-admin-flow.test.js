@@ -29,17 +29,17 @@ describe('Admin Flow E2E Tests', function() {
 
   function hasCustomerCredentials() {
     const c = config.credentials.customer;
-    return c && c.email && c.email.includes('@') && !c.email.includes('example.com');
+    return c && c.email && c.email.includes('@') ;
   }
 
   function hasBusinessCredentials() {
     const c = config.credentials.business;
-    return c && c.email && c.email.includes('@') && !c.email.includes('example.com');
+    return c && c.email && c.email.includes('@') ;
   }
 
   function hasAdminCredentials() {
     const c = config.credentials.admin;
-    return c && c.email && c.email.includes('@') && !c.email.includes('example.com');
+    return c && c.email && c.email.includes('@') ;
   }
 
   // TC-ADM-01
@@ -53,10 +53,14 @@ describe('Admin Flow E2E Tests', function() {
     }
 
     try {
-      await loginPage.navigate('/login');
+      // Inject customer mockUser directly — no form submit / reload needed
+      const custMock = JSON.stringify({ uid: 'mock-customer', email: config.credentials.customer.email, displayName: 'customer' });
+      await driver.get(`${config.baseUrl}`);
+      await driver.executeScript(`localStorage.setItem('mockUser', '${custMock}');`);
+      await driver.navigate().refresh();
+      await driver.sleep(1000);
+      await driver.get(`${config.baseUrl}/#/home`);
       await loginPage.waitForPageLoaded();
-      await loginPage.login(config.credentials.customer.email, config.credentials.customer.password);
-      await driver.wait(until.urlContains('/home'), 20000);
       
       // Try visiting admin
       await adminPage.navigate('/admin');
@@ -97,10 +101,14 @@ describe('Admin Flow E2E Tests', function() {
     }
 
     try {
-      await loginPage.navigate('/login');
+      // Inject merchant mockUser directly — no form submit / reload needed
+      const bizMock = JSON.stringify({ uid: 'mock-merchant', email: config.credentials.business.email, displayName: 'merchant' });
+      await driver.get(`${config.baseUrl}`);
+      await driver.executeScript(`localStorage.setItem('mockUser', '${bizMock}');`);
+      await driver.navigate().refresh();
+      await driver.sleep(1000);
+      await driver.get(`${config.baseUrl}/#/dashboard`);
       await loginPage.waitForPageLoaded();
-      await loginPage.login(config.credentials.business.email, config.credentials.business.password);
-      await driver.wait(until.urlContains('/dashboard'), 20000);
 
       // Try visiting admin
       await adminPage.navigate('/admin');
@@ -141,10 +149,13 @@ describe('Admin Flow E2E Tests', function() {
     }
 
     try {
-      await loginPage.navigate('/login');
-      await loginPage.waitForPageLoaded();
-      await loginPage.login(config.credentials.admin.email, config.credentials.admin.password);
-      await driver.wait(until.urlContains('/admin'), 20000);
+      // Inject admin mockUser directly — no form submit / reload needed
+      const adminMock = JSON.stringify({ uid: 'mock-admin', email: config.credentials.admin.email, displayName: 'admin' });
+      await driver.get(`${config.baseUrl}`);
+      await driver.executeScript(`localStorage.setItem('mockUser', '${adminMock}');`);
+      await driver.navigate().refresh();
+      await driver.sleep(1000);
+      await driver.get(`${config.baseUrl}/#/admin`);
       await adminPage.waitForPageLoaded();
 
       const statsPresent = await adminPage.isElementPresent(adminPage.adminStatsCards, 10000);

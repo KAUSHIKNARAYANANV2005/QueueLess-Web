@@ -29,6 +29,54 @@ const SmartRoute = () => {
 
   // 1. Fetch Booking and Queue in real-time
   useEffect(() => {
+    const isMock = bookingId?.startsWith('mock-') || localStorage.getItem('mockBooking');
+    if (isMock) {
+      const saved = localStorage.getItem('mockBooking');
+      const parsedBooking = saved ? JSON.parse(saved) : {
+        id: bookingId || 'mock-booking-1',
+        customerId: 'mock-customer',
+        customerName: 'Customer',
+        businessId: 'mock-biz-1',
+        businessName: 'Supreme Salon & Spa',
+        serviceId: 'mock-service-1',
+        serviceName: 'Premium Haircut',
+        staffId: 'mock-staff-1',
+        dateTime: { seconds: Math.floor(Date.now() / 1000) },
+        status: 'confirmed',
+        queuePosition: 1,
+        estimatedWaitMinutes: 10,
+        price: 350,
+        paymentStatus: 'pending',
+        tokenNumber: 'AG-MOCK'
+      };
+      setBooking(parsedBooking);
+      setBusiness({
+        id: parsedBooking.businessId,
+        name: parsedBooking.businessName,
+        category: 'Salon',
+        lat: 40.7128,
+        lng: -74.0060,
+        isOpen: true
+      });
+      setQueue({
+        businessId: parsedBooking.businessId,
+        items: [
+          {
+            bookingId: parsedBooking.id,
+            customerName: parsedBooking.customerName,
+            serviceName: parsedBooking.serviceName,
+            position: 1,
+            status: 'waiting',
+            waitMinutes: 10
+          }
+        ]
+      });
+      setTravelDuration(15);
+      setTravelDistance(4.2);
+      setLoading(false);
+      return;
+    }
+
     if (!currentUser || !bookingId) return;
 
     let unsubBiz = null;

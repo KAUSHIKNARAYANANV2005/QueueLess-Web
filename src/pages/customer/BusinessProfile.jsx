@@ -56,6 +56,50 @@ const BusinessProfile = () => {
 
   // ── Real-Time Listeners Subscription ───────────────────────────────────────
   useEffect(() => {
+    const isMock = id?.startsWith('mock-biz-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      setBusiness({
+        id: id || 'mock-biz-1',
+        name: 'Supreme Salon & Spa',
+        category: 'Salon',
+        description: 'Premium haircare, styling, and wellness treatments.',
+        address: '123 Style Boulevard, Glamour City',
+        phone: '1234567890',
+        rating: 4.8,
+        reviewCount: 24,
+        currentQueue: 3,
+        isOpen: true,
+        isVerified: true,
+        hours: {
+          Monday: '09:00 AM - 09:00 PM',
+          Tuesday: '09:00 AM - 09:00 PM',
+          Wednesday: '09:00 AM - 09:00 PM',
+          Thursday: '09:00 AM - 09:00 PM',
+          Friday: '09:00 AM - 09:00 PM',
+          Saturday: '09:00 AM - 09:00 PM',
+          Sunday: '09:00 AM - 09:00 PM'
+        }
+      });
+      setServices([
+        { id: 'mock-service-1', name: 'Premium Haircut', price: '350', durationMinutes: 30, isAvailable: true, isActive: true },
+        { id: 'mock-service-2', name: 'Facial and Spa Care', price: '800', durationMinutes: 60, isAvailable: true, isActive: true }
+      ]);
+      setStaff([
+        { id: 'mock-staff-1', name: 'Alice Smith', role: 'Stylist', isAvailable: true, isActive: true },
+        { id: 'mock-staff-2', name: 'Bob Jones', role: 'Therapist', isAvailable: true, isActive: true }
+      ]);
+      setReviews([
+        { id: 'mock-review-1', customerName: 'John Doe', rating: 5, text: 'Great haircut experience!' },
+        { id: 'mock-review-2', customerName: 'Mary Jane', rating: 4, text: 'Polite staff and fast service.', reply: 'Thank you Mary!' }
+      ]);
+      setLoading(false);
+      setLoadingServices(false);
+      setLoadingStaff(false);
+      setLoadingReviews(false);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setLoadingServices(true);
     setLoadingStaff(true);
@@ -145,6 +189,17 @@ const BusinessProfile = () => {
 
   // 5. Active Customer Booking Listener
   useEffect(() => {
+    const isMock = id?.startsWith('mock-biz-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      const savedBooking = localStorage.getItem('mockBooking');
+      if (savedBooking) {
+        setActiveBooking(JSON.parse(savedBooking));
+      } else {
+        setActiveBooking(null);
+      }
+      return;
+    }
+
     if (!currentUser || !id) return;
 
     const bookingsRef = collection(db, 'bookings');

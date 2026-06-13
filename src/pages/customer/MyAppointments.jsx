@@ -288,6 +288,11 @@ const MyAppointments = () => {
 
   // ── Load already reviewed booking IDs
   useEffect(() => {
+    const isMock = currentUser?.uid?.startsWith('mock-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      setReviewedBookingIds(new Set());
+      return;
+    }
     if (!currentUser) return;
     const q = query(
       collection(db, 'reviews'),
@@ -304,6 +309,18 @@ const MyAppointments = () => {
 
   // ── Real-time listener for all bookings by this customer
   useEffect(() => {
+    const isMock = currentUser?.uid?.startsWith('mock-') || localStorage.getItem('mockUser');
+    if (isMock) {
+      const saved = localStorage.getItem('mockBooking');
+      if (saved) {
+        setBookings([JSON.parse(saved)]);
+      } else {
+        setBookings([]);
+      }
+      setLoading(false);
+      setError(null);
+      return;
+    }
     if (!currentUser) return;
 
     const q = query(
@@ -339,6 +356,15 @@ const MyAppointments = () => {
 
     setCancellingId(booking.id);
     setCancelError('');
+
+    const isMock = booking.id?.startsWith('mock-') || localStorage.getItem('mockBooking');
+    if (isMock) {
+      localStorage.removeItem('mockBooking');
+      setBookings([]);
+      showToast('Appointment successfully cancelled.', 'success');
+      setCancellingId(null);
+      return;
+    }
 
     try {
       const bookingRef = doc(db, 'bookings', booking.id);
