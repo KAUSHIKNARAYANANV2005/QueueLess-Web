@@ -39,7 +39,7 @@ jobs:
         echo "VITE_GOOGLE_MAPS_API_KEY=AIzaSyDpH7rDbRYXCYjJ6YdX8zld9Sfd4ZgfEMo" >> .env
 
     - name: Start Vite Dev Server
-      run: npm run dev &
+      run: npm run dev -- --host &
       
     - name: Wait for dev server to be ready
       run: |
