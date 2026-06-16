@@ -1,0 +1,71 @@
+name: Security Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Static Security Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run Security Scanner
+      run: node "Vulnerability Test Results/security-scanner.cjs"
+
+    - name: Upload Security Reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-reports
+        path: |
+          Vulnerability Test Results/security-scan-report.md
+          Vulnerability Test Results/security-scan-report.json
+          Vulnerability Test Results/SECURITY_AUDIT_REPORT.md
+
+  dependency-audit:
+    name: Dependency Vulnerability Audit
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run npm audit
+      run: |
+        mkdir -p "Vulnerability Test Results"
+        echo "## 📦 Dependency Vulnerability Report" > "Vulnerability Test Results/dependency-audit.md"
+        echo "" >> "Vulnerability Test Results/dependency-audit.md"
+        echo "**Scan Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "Vulnerability Test Results/dependency-audit.md"
+        echo "" >> "Vulnerability Test Results/dependency-audit.md"
+        echo '```' >> "Vulnerability Test Results/dependency-audit.md"
+        npm audit --production 2>&1 | tee -a "Vulnerability Test Results/dependency-audit.md" || true
+        echo '```' >> "Vulnerability Test Results/dependency-audit.md"
+        echo ""
+        echo "✅ Dependency audit report generated successfully."
+
+    - name: Upload Dependency Audit Report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-audit-report
+        path: Vulnerability Test Results/dependency-audit.md
