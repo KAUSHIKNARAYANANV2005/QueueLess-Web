@@ -33,8 +33,7 @@ jobs:
           Vulnerability Test Results/security-scan-report.md
           Vulnerability Test Results/security-scan-report.json
           Vulnerability Test Results/SECURITY_AUDIT_REPORT.md
-          Vulnerability Test Results/security-test-cases-report.csv
-          Vulnerability Test Results/security-test-cases.json
+          Vulnerability Test Results/security-test-cases-report.xlsx
 
   dependency-audit:
     name: Dependency Vulnerability Audit
