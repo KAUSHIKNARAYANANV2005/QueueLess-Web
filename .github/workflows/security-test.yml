@@ -1,5 +1,5 @@
 name: Security Test
-
+run-name: VULNERABILITY SECURITY TEST
 on:
   push:
     branches: [ main ]

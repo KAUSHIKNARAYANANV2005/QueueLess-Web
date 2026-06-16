@@ -1,5 +1,5 @@
 name: E2E Web Tests
-
+run-name: SELENIUM E2E WEB TEST
 on:
   push:
     branches: [ main ]
