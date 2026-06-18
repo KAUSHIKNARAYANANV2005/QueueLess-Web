@@ -2,6 +2,10 @@ name: Isolated Load Testing Pipeline
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'testing/load-tests/**'
+      - '.github/workflows/load-test.yml'
 
 jobs:
   load-test:
