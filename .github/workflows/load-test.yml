@@ -1,0 +1,54 @@
+name: Isolated Load Testing Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Start Local Preview Server
+        run: |
+          npm run preview -- --port 4173 --strictPort &
+          echo "Waiting for server to start..."
+          npx wait-on http://localhost:4173
+
+      - name: Install k6
+        run: |
+          curl -L https://github.com/grafana/k6/releases/download/v0.50.0/k6-v0.50.0-linux-amd64.tar.gz | tar -xz
+          sudo cp k6-v0.50.0-linux-amd64/k6 /usr/bin/k6
+
+      - name: Run k6 Load Test
+        run: |
+          mkdir -p load-test-reports
+          k6 run testing/load-tests/k6-script.js
+
+      - name: Generate HTML & Excel Reports
+        run: |
+          # Install required package just for the script without modifying package.json
+          npm install xlsx --no-save
+          node testing/load-tests/generate-reports.js
+
+      - name: Upload Load Test Reports Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-reports
+          path: load-test-reports/
+          retention-days: 7
