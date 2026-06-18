@@ -27,7 +27,7 @@ jobs:
         run: |
           npm run preview -- --port 4173 --strictPort &
           echo "Waiting for server to start..."
-          npx --yes wait-on http://127.0.0.1:4173/QueueLess-Web/
+          npx --yes wait-on tcp:127.0.0.1:4173
 
       - name: Install k6
         run: |
@@ -42,7 +42,7 @@ jobs:
       - name: Generate HTML & Excel Reports
         run: |
           # Install required package just for the script without modifying package.json
-          npm install xlsx --no-save
+          npm install exceljs --no-save
           node testing/load-tests/generate-reports.cjs
 
       - name: Upload Load Test Reports Artifact

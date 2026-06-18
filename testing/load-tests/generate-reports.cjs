@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 
 const summaryFile = path.join(__dirname, 'summary.json');
 const outputDir = path.join(__dirname, '../../load-test-reports');
@@ -8,7 +8,6 @@ const excelFile = path.join(outputDir, 'Load_Test_Report.xlsx');
 const htmlFile = path.join(outputDir, 'Load_Test_Report.html');
 
 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-
 const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'));
 
 const testCases = [];
@@ -61,35 +60,133 @@ const overallAvgResponse = (totalAvgResponseTime / testCases.length).toFixed(2);
 const overallAvgRPS = (totalRps / testCases.length).toFixed(2);
 const overallStatus = passPercentage >= 90 ? "PASS" : "FAIL";
 
-const wb = xlsx.utils.book_new();
-const wsData = xlsx.utils.json_to_sheet(rows);
-xlsx.utils.book_append_sheet(wb, wsData, "Test Results");
+async function generateReports() {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Load Testing Pipeline';
 
-const summaryRows = [
-  {"Metric": "Total Test Cases", "Value": testCases.length},
-  {"Metric": "Passed", "Value": passedCount},
-  {"Metric": "Failed", "Value": failedCount},
-  {"Metric": "Pass Percentage", "Value": passPercentage + "%"},
-  {"Metric": "Overall Average RPS", "Value": overallAvgRPS},
-  {"Metric": "Overall Average Response Time (ms)", "Value": overallAvgResponse},
-  {"Metric": "Overall Status", "Value": overallStatus}
-];
-const wsSummary = xlsx.utils.json_to_sheet(summaryRows);
-xlsx.utils.book_append_sheet(wb, wsSummary, "Summary");
+  // 1. SUMMARY SHEET (First Sheet)
+  const wsSummary = workbook.addWorksheet('Summary', { properties: { tabColor: { argb: 'FF00B0F0' } } });
+  wsSummary.columns = [
+    { header: 'Metric', key: 'metric', width: 35 },
+    { header: 'Value', key: 'value', width: 25 }
+  ];
 
-xlsx.writeFile(wb, excelFile);
+  // Style Summary Header
+  wsSummary.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  wsSummary.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF34495E' } };
 
-const htmlContent = `<!DOCTYPE html>
+  const summaryRows = [
+    { metric: "Total Test Cases", value: testCases.length },
+    { metric: "Passed", value: passedCount },
+    { metric: "Failed", value: failedCount },
+    { metric: "Pass Percentage", value: passPercentage + "%" },
+    { metric: "Overall Average RPS", value: overallAvgRPS },
+    { metric: "Overall Average Response Time (ms)", value: overallAvgResponse },
+    { metric: "Overall Status", value: overallStatus }
+  ];
+
+  summaryRows.forEach(row => {
+    const r = wsSummary.addRow(row);
+    r.font = { size: 12 };
+    // Highlight Final Status Row
+    if (row.metric === "Overall Status") {
+      r.font = { bold: true, color: { argb: row.value === 'PASS' ? 'FF008000' : 'FFFF0000' } };
+      r.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: row.value === 'PASS' ? 'FFD4EDDA' : 'FFF8D7DA' } };
+    }
+  });
+
+
+  // 2. TEST CASES SHEET (Second Sheet)
+  const wsData = workbook.addWorksheet('Test Cases', { properties: { tabColor: { argb: 'FF92D050' } } });
+  wsData.columns = [
+    { header: 'Test Case', key: 'test_case', width: 35 },
+    { header: 'Category', key: 'category', width: 25 },
+    { header: 'Requests Per Second (RPS)', key: 'rps', width: 25 },
+    { header: 'Average Response Time (ms)', key: 'avg', width: 28 },
+    { header: 'Min Response Time (ms)', key: 'min', width: 25 },
+    { header: 'Max Response Time (ms)', key: 'max', width: 25 },
+    { header: 'Threshold', key: 'threshold', width: 15 },
+    { header: 'Result', key: 'result', width: 15 },
+    { header: 'Status', key: 'status', width: 20 }
+  ];
+
+  // Style Data Header
+  wsData.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  wsData.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C3E50' } };
+
+  rows.forEach(rowData => {
+    const r = wsData.addRow({
+      test_case: rowData["Test Case"],
+      category: rowData["Category"],
+      rps: rowData["Requests Per Second (RPS)"],
+      avg: rowData["Average Response Time (ms)"],
+      min: rowData["Min Response Time (ms)"],
+      max: rowData["Max Response Time (ms)"],
+      threshold: rowData["Threshold"],
+      result: rowData["Result"],
+      status: rowData["Status"]
+    });
+
+    // Style the Result Column (PASS = Green, FAIL = Red)
+    const resultCell = r.getCell('result');
+    if (resultCell.value === 'PASS') {
+      resultCell.font = { bold: true, color: { argb: 'FF008000' } }; // Dark Green text
+      resultCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } }; // Light Green BG
+    } else {
+      resultCell.font = { bold: true, color: { argb: 'FFFF0000' } }; // Red text
+      resultCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } }; // Light Red BG
+    }
+    
+    // Formatting numbers with 2 decimals
+    r.getCell('rps').numFmt = '0.00';
+    r.getCell('avg').numFmt = '0.00';
+    r.getCell('min').numFmt = '0.00';
+    r.getCell('max').numFmt = '0.00';
+  });
+
+  // Borders for all populated cells in Test Cases
+  wsData.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: {style:'thin'},
+        left: {style:'thin'},
+        bottom: {style:'thin'},
+        right: {style:'thin'}
+      };
+    });
+  });
+
+  wsSummary.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: {style:'thin'},
+        left: {style:'thin'},
+        bottom: {style:'thin'},
+        right: {style:'thin'}
+      };
+    });
+  });
+
+  await workbook.xlsx.writeFile(excelFile);
+
+  // 3. HTML REPORT
+  const htmlContent = `<!DOCTYPE html>
 <html lang="en">
-<head><style>body { font-family: sans-serif; padding: 20px; } table { width: 100%; border-collapse: collapse; } th, td { padding: 10px; border: 1px solid #ddd; } .pass { color: green; } .fail { color: red; }</style></head>
+<head><style>body { font-family: sans-serif; padding: 20px; } table { width: 100%; border-collapse: collapse; } th, td { padding: 10px; border: 1px solid #ddd; } .pass { color: green; font-weight: bold; background-color: #d4edda; } .fail { color: red; font-weight: bold; background-color: #f8d7da; } th { background-color: #2c3e50; color: white; }</style></head>
 <body>
     <h1>QueueLess Load Test Report (100 VUs / 1 min)</h1>
     <p>Total: ${testCases.length} | Passed: ${passedCount} | Failed: ${failedCount} | Pass Rate: ${passPercentage}% | Avg RPS: ${overallAvgRPS} | Avg Time: ${overallAvgResponse}ms</p>
     <table>
-        <tr><th>Test Case</th><th>Category</th><th>RPS</th><th>Avg (ms)</th><th>Min (ms)</th><th>Max (ms)</th><th>Result</th></tr>
-        ${rows.map(r => `<tr><td>${r["Test Case"]}</td><td>${r["Category"]}</td><td>${r["Requests Per Second (RPS)"]}</td><td>${r["Average Response Time (ms)"]}</td><td>${r["Min Response Time (ms)"]}</td><td>${r["Max Response Time (ms)"]}</td><td class="${r["Result"] === 'PASS' ? 'pass' : 'fail'}">${r["Result"]}</td></tr>`).join('')}
+        <tr><th>Test Case</th><th>Category</th><th>RPS</th><th>Avg (ms)</th><th>Min (ms)</th><th>Max (ms)</th><th>Threshold</th><th>Result</th></tr>
+        ${rows.map(r => `<tr><td>${r["Test Case"]}</td><td>${r["Category"]}</td><td>${r["Requests Per Second (RPS)"]}</td><td>${r["Average Response Time (ms)"]}</td><td>${r["Min Response Time (ms)"]}</td><td>${r["Max Response Time (ms)"]}</td><td>${r["Threshold"]}</td><td class="${r["Result"] === 'PASS' ? 'pass' : 'fail'}">${r["Result"]}</td></tr>`).join('')}
     </table>
 </body>
 </html>`;
-fs.writeFileSync(htmlFile, htmlContent);
-fs.copyFileSync(summaryFile, path.join(outputDir, 'metrics.json'));
+  fs.writeFileSync(htmlFile, htmlContent);
+  fs.copyFileSync(summaryFile, path.join(outputDir, 'metrics.json'));
+}
+
+generateReports().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
