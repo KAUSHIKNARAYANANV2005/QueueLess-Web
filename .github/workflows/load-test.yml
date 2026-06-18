@@ -43,7 +43,7 @@ jobs:
         run: |
           # Install required package just for the script without modifying package.json
           npm install xlsx --no-save
-          node testing/load-tests/generate-reports.js
+          node testing/load-tests/generate-reports.cjs
 
       - name: Upload Load Test Reports Artifact
         uses: actions/upload-artifact@v4
