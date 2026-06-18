@@ -27,7 +27,7 @@ jobs:
         run: |
           npm run preview -- --port 4173 --strictPort &
           echo "Waiting for server to start..."
-          npx wait-on http://localhost:4173
+          npx --yes wait-on http://127.0.0.1:4173
 
       - name: Install k6
         run: |
