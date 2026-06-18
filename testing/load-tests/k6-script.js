@@ -8,7 +8,7 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'max', 'p(95)', 'count'],
 };
 
-const BASE_URL = 'http://127.0.0.1:4173';
+const BASE_URL = 'http://127.0.0.1:4173/QueueLess-Web';
 const FIREBASE_REST_URL = 'https://firestore.googleapis.com/v1/projects/queueless-d131e/databases/(default)/documents';
 
 const trends = {};
