@@ -1,10 +1,10 @@
 name: E2E Web Tests
-run-name: SELENIUM E2E WEB TEST
+run-name: Web Selenium E2E Test
 on:
   push:
-    branches: [ main ]
+    branches: [ "main", "**" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:

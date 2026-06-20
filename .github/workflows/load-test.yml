@@ -1,11 +1,11 @@
 name: Isolated Load Testing Pipeline
-
+run-name: Web Load Performance Test
 on:
-  workflow_dispatch:
   push:
-    paths:
-      - 'testing/load-tests/**'
-      - '.github/workflows/load-test.yml'
+    branches: [ "main", "**" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   load-test:
