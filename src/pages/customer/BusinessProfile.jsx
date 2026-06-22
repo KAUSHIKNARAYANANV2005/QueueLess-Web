@@ -243,12 +243,22 @@ const BusinessProfile = () => {
       const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       const sortedDays = Object.keys(business.hours).sort((a, b) => daysOrder.indexOf(a) - daysOrder.indexOf(b));
 
+      const formatHourDisplay = (val) => {
+        if (!val) return 'Closed';
+        if (typeof val === 'string') return val;
+        if (typeof val === 'object') {
+          if (val.isOpen === false) return 'Closed';
+          return `${val.start || val.open || '09:00 AM'} - ${val.end || val.close || '06:00 PM'}`;
+        }
+        return 'Closed';
+      };
+
       return (
         <div className="hours-list">
           {sortedDays.map(day => (
             <div key={day} className="hours-row">
               <span className="day-name">{day}</span>
-              <span className="day-time">{business.hours[day] || 'Closed'}</span>
+              <span className="day-time">{formatHourDisplay(business.hours[day])}</span>
             </div>
           ))}
         </div>
@@ -334,7 +344,7 @@ const BusinessProfile = () => {
               <img src={business.logoImage} alt={`${business.name} logo`} className="profile-logo" />
             ) : (
               <div className="profile-logo-placeholder">
-                {business.name?.charAt(0).toUpperCase()}
+                {(business.name || 'B').charAt(0).toUpperCase()}
               </div>
             )}
 
@@ -448,7 +458,7 @@ const BusinessProfile = () => {
                         <img src={member.avatar || member.profileImage} alt={member.name} className="staff-avatar" />
                       ) : (
                         <div className="staff-avatar-placeholder">
-                          {member.name?.charAt(0).toUpperCase()}
+                          {(member.name || 'S').charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="staff-info">

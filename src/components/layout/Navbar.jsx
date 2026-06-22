@@ -16,6 +16,8 @@ const Navbar = ({ onMenuClick }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [toast, setToast] = useState({ show: false, title: '', message: '' });
+  const initialLoadRef = React.useRef(true);
 
   // Subscribe to unread notifications count in real-time
   useEffect(() => {
@@ -30,10 +32,26 @@ const Navbar = ({ onMenuClick }) => {
     );
     const unsub = onSnapshot(q, (snap) => {
       setUnreadCount(snap.size);
+
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+        return;
+      }
+
+      snap.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const notif = change.doc.data();
+          setToast({ show: true, title: notif.title, message: notif.message });
+          setTimeout(() => setToast({ show: false, title: '', message: '' }), 5000);
+        }
+      });
     }, (err) => {
       console.error("Navbar notifications listener error:", err);
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      initialLoadRef.current = true;
+    };
   }, [currentUser]);
 
   const handleLogout = async () => {
@@ -158,6 +176,16 @@ const Navbar = ({ onMenuClick }) => {
           </div>
         )}
       </div>
+
+      {toast.show && (
+        <div className="global-toast animate-fade-in">
+          <div className="global-toast-icon"><Bell size={16} /></div>
+          <div className="global-toast-content">
+            <h4>{toast.title}</h4>
+            <p>{toast.message}</p>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .navbar-container {
@@ -379,6 +407,42 @@ const Navbar = ({ onMenuClick }) => {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+
+        .global-toast {
+          position: fixed;
+          top: 80px;
+          right: 24px;
+          background: var(--glass-bg);
+          border: 1px solid var(--primary);
+          box-shadow: 0 8px 32px rgba(108, 99, 255, 0.2);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-radius: var(--border-radius-md);
+          padding: 16px;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          z-index: 1000;
+          max-width: 320px;
+          color: var(--text-primary);
+        }
+        .global-toast-icon {
+          color: var(--primary);
+          background: rgba(108, 99, 255, 0.1);
+          padding: 8px;
+          border-radius: 50%;
+          display: flex;
+        }
+        .global-toast-content h4 {
+          margin: 0 0 4px 0;
+          font-size: 0.95rem;
+        }
+        .global-toast-content p {
+          margin: 0;
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+          line-height: 1.4;
         }
 
         @media (max-width: 1024px) {

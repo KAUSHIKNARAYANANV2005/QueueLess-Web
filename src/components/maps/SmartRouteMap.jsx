@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { loadGoogleMapsScript, isGoogleMapsConfigured, calculateFallbackRoute } from '../../services/maps/googleMapsService';
 import { MapPin, Navigation, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
 
-const SmartRouteMap = ({ businessLat, businessLng, businessName, onRouteCalculated }) => {
+const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName, onRouteCalculated }) => {
   const mapRef = useRef(null);
   const [mapState, setMapState] = useState({
     loading: true,
@@ -18,15 +18,16 @@ const SmartRouteMap = ({ businessLat, businessLng, businessName, onRouteCalculat
 
   // External link helper
   const getExternalMapLink = () => {
+    const dest = (businessLat && businessLng) ? `${businessLat},${businessLng}` : encodeURIComponent(businessAddress || businessName);
     if (customerLoc) {
-      return `https://www.google.com/maps/dir/?api=1&origin=${customerLoc.lat},${customerLoc.lng}&destination=${businessLat},${businessLng}`;
+      return `https://www.google.com/maps/dir/?api=1&origin=${customerLoc.lat},${customerLoc.lng}&destination=${dest}`;
     }
-    return `https://www.google.com/maps/dir/?api=1&destination=${businessLat},${businessLng}`;
+    return `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
   };
 
   useEffect(() => {
-    // 1. Verify business lat/lng exist
-    if (!businessLat || !businessLng) {
+    // 1. Verify business location exists
+    if ((!businessLat || !businessLng) && !businessAddress) {
       setMapState((prev) => ({ ...prev, loading: false, noLatLng: true }));
       return;
     }
@@ -58,10 +59,13 @@ const SmartRouteMap = ({ businessLat, businessLng, businessName, onRouteCalculat
             });
           } else {
             // Fallback routing calculation
-            const fallback = calculateFallbackRoute(userLat, userLng, businessLat, businessLng);
-            setRouteInfo(fallback);
-            if (onRouteCalculated) {
-              onRouteCalculated(fallback.durationMins, fallback.distanceKm);
+            if (businessLat && businessLng) {
+              const fallback = calculateFallbackRoute(userLat, userLng, businessLat, businessLng);
+              setRouteInfo(fallback);
+              if (onRouteCalculated) onRouteCalculated(fallback.durationMins, fallback.distanceKm);
+            } else {
+              setRouteInfo({ distanceKm: 5, durationMins: 15 });
+              if (onRouteCalculated) onRouteCalculated(15, 5);
             }
             setMapState({
               loading: false,
@@ -75,10 +79,13 @@ const SmartRouteMap = ({ businessLat, businessLng, businessName, onRouteCalculat
         } catch (err) {
           console.error("Error initializing map script:", err);
           // Fallback calculations even on script error
-          const fallback = calculateFallbackRoute(userLat, userLng, businessLat, businessLng);
-          setRouteInfo(fallback);
-          if (onRouteCalculated) {
-            onRouteCalculated(fallback.durationMins, fallback.distanceKm);
+          if (businessLat && businessLng) {
+            const fallback = calculateFallbackRoute(userLat, userLng, businessLat, businessLng);
+            setRouteInfo(fallback);
+            if (onRouteCalculated) onRouteCalculated(fallback.durationMins, fallback.distanceKm);
+          } else {
+            setRouteInfo({ distanceKm: 5, durationMins: 15 });
+            if (onRouteCalculated) onRouteCalculated(15, 5);
           }
           setMapState({
             loading: false,
@@ -123,7 +130,7 @@ const SmartRouteMap = ({ businessLat, businessLng, businessName, onRouteCalculat
     try {
       const google = window.google;
       const map = new google.maps.Map(mapRef.current, {
-        center: { lat: businessLat, lng: businessLng },
+        center: { lat: businessLat || customerLoc.lat, lng: businessLng || customerLoc.lng },
         zoom: 14,
         styles: [
           {
@@ -167,24 +174,26 @@ const SmartRouteMap = ({ businessLat, businessLng, businessName, onRouteCalculat
         },
       });
 
-      const destMarker = new google.maps.Marker({
-        position: { lat: businessLat, lng: businessLng },
-        map: map,
-        title: businessName,
-        icon: {
-          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-          scale: 6,
-          fillColor: '#6C63FF',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 1,
-        },
-      });
+      if (businessLat && businessLng) {
+        const destMarker = new google.maps.Marker({
+          position: { lat: businessLat, lng: businessLng },
+          map: map,
+          title: businessName,
+          icon: {
+            path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+            scale: 6,
+            fillColor: '#6C63FF',
+            fillOpacity: 1,
+            strokeColor: '#FFFFFF',
+            strokeWeight: 1,
+          },
+        });
+      }
 
       directionsService.route(
         {
           origin: { lat: customerLoc.lat, lng: customerLoc.lng },
-          destination: { lat: businessLat, lng: businessLng },
+          destination: (businessLat && businessLng) ? { lat: businessLat, lng: businessLng } : businessAddress,
           travelMode: google.maps.TravelMode.DRIVING,
         },
         (response, status) => {
@@ -201,10 +210,15 @@ const SmartRouteMap = ({ businessLat, businessLng, businessName, onRouteCalculat
           } else {
             console.error('Directions request failed due to ' + status);
             // Fallback calculations
-            const fallback = calculateFallbackRoute(customerLoc.lat, customerLoc.lng, businessLat, businessLng);
-            setRouteInfo(fallback);
-            if (onRouteCalculated) {
-              onRouteCalculated(fallback.durationMins, fallback.distanceKm);
+            if (businessLat && businessLng) {
+              const fallback = calculateFallbackRoute(customerLoc.lat, customerLoc.lng, businessLat, businessLng);
+              setRouteInfo(fallback);
+              if (onRouteCalculated) {
+                onRouteCalculated(fallback.durationMins, fallback.distanceKm);
+              }
+            } else {
+              setRouteInfo({ distanceKm: 5, durationMins: 15 });
+              if (onRouteCalculated) onRouteCalculated(15, 5);
             }
           }
         }

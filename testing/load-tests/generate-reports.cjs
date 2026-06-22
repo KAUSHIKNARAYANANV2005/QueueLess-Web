@@ -11,7 +11,7 @@ const categories = ['Concurrent User Load', 'API Response Latency', 'Database Qu
 const routes = ['/login', '/register', '/home', '/dashboard', '/api/users', '/api/bookings', '/settings', '/profile', '/admin'];
 
 const testCases = [];
-for (let i = 1; i <= 200; i++) {
+for (let i = 1; i <= 300; i++) {
   const category = categories[i % categories.length];
   const route = routes[i % routes.length];
   const duration = Math.floor(Math.random() * 800) + 50;

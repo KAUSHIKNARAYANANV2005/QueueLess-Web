@@ -249,7 +249,8 @@ const SmartRoute = () => {
 
   const getExternalMapLink = () => {
     if (!business) return '#';
-    return `https://www.google.com/maps/dir/?api=1&destination=${business.lat},${business.lng}`;
+    const dest = (business.lat && business.lng) ? `${business.lat},${business.lng}` : encodeURIComponent(business.address || business.name);
+    return `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
   };
 
   if (error) {
@@ -306,6 +307,7 @@ const SmartRoute = () => {
             <SmartRouteMap
               businessLat={business?.lat}
               businessLng={business?.lng}
+              businessAddress={business?.address}
               businessName={booking.businessName}
               onRouteCalculated={handleRouteCalculated}
             />
@@ -338,7 +340,7 @@ const SmartRoute = () => {
             <div className="glass-panel sr-summary-card highlighted">
               <h2>Departure Recommendation</h2>
               
-              {!business?.lat || !business?.lng ? (
+              {(!business?.lat && !business?.address) ? (
                 <div className="sr-alert-box leave-now">
                   <AlertTriangle size={18} />
                   <div>
@@ -390,7 +392,7 @@ const SmartRoute = () => {
             </div>
 
             {/* Launch Directions */}
-            {business?.lat && business?.lng && (
+            {(business?.lat || business?.address) && (
               <a 
                 href={getExternalMapLink()} 
                 target="_blank" 

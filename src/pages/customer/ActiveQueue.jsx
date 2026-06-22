@@ -103,6 +103,7 @@ const ActiveQueue = () => {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState(null);
   const [cancelled, setCancelled]     = useState(false);
+  const [businessDoc, setBusinessDoc] = useState(null);
 
   // ─── Derived: live queue position ────────────────────────────────────────
   const livePosition = React.useMemo(() => {

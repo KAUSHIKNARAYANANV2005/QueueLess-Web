@@ -19,7 +19,7 @@ const parseBusinessHours = (hoursValue, dayOfWeek) => {
   let hoursStr = '';
   if (typeof hoursValue === 'string') {
     hoursStr = hoursValue;
-  } else if (typeof hoursValue === 'object') {
+  } else if (typeof hoursValue === 'object' && hoursValue !== null) {
     hoursStr = hoursValue[dayOfWeek] || '';
   }
 
@@ -231,7 +231,7 @@ const DateTimePicker = () => {
     const now = new Date();
     const currentTotalMin = now.getHours() * 60 + now.getMinutes();
 
-    const serviceDuration = selectedService.durationMinutes || selectedService.duration || 30;
+    const serviceDuration = Number(selectedService.durationMinutes || selectedService.duration || 30);
     let currentMin = activeHours.startMin;
 
     while (currentMin + serviceDuration <= activeHours.endMin) {

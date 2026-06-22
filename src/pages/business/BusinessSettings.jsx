@@ -71,6 +71,103 @@ const Skeleton = ({ style = {} }) => (
   <div className="se-skeleton" style={style} />
 );
 
+// Draggable Map Preview Component for Coordinates Configuration
+function LocationPreviewMap({ lat, lng, mapsLoaded, onCoordinatesChanged }) {
+  const mapRef = React.useRef(null);
+  const [mapObj, setMapObj] = useState(null);
+  const [markerObj, setMarkerObj] = useState(null);
+
+  const numericLat = parseFloat(lat);
+  const numericLng = parseFloat(lng);
+  const hasValidCoords = !isNaN(numericLat) && !isNaN(numericLng) && numericLat >= -90 && numericLat <= 90 && numericLng >= -180 && numericLng <= 180;
+
+  useEffect(() => {
+    if (!window.google || !window.google.maps || !mapRef.current) return;
+
+    const google = window.google;
+    const initialCenter = hasValidCoords ? { lat: numericLat, lng: numericLng } : { lat: 12.971598, lng: 77.594562 }; // Default Bengaluru
+
+    const map = new google.maps.Map(mapRef.current, {
+      center: initialCenter,
+      zoom: hasValidCoords ? 15 : 10,
+      disableDefaultUI: true,
+      zoomControl: true,
+      styles: [
+        { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#202030' }] },
+        { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#707080' }] },
+      ]
+    });
+
+    const marker = new google.maps.Marker({
+      position: initialCenter,
+      map: map,
+      draggable: true,
+      title: 'Store Location'
+    });
+
+    google.maps.event.addListener(marker, 'dragend', () => {
+      const pos = marker.getPosition();
+      onCoordinatesChanged(pos.lat().toFixed(6), pos.lng().toFixed(6));
+    });
+
+    map.addListener('click', (e) => {
+      const pos = e.latLng;
+      marker.setPosition(pos);
+      onCoordinatesChanged(pos.lat().toFixed(6), pos.lng().toFixed(6));
+    });
+
+    setMapObj(map);
+    setMarkerObj(marker);
+
+    return () => {
+      google.maps.event.clearInstanceListeners(marker);
+      google.maps.event.clearInstanceListeners(map);
+    };
+  }, [mapsLoaded]);
+
+  // Sync marker position if coordinates change externally
+  useEffect(() => {
+    if (!markerObj || !mapObj || !hasValidCoords) return;
+    const pos = { lat: numericLat, lng: numericLng };
+    markerObj.setPosition(pos);
+    mapObj.panTo(pos);
+  }, [lat, lng, markerObj, mapObj]);
+
+  if (!window.google || !window.google.maps) {
+    return (
+      <div style={{
+        height: '140px',
+        background: 'rgba(255, 255, 255, 0.015)',
+        border: '1px dashed var(--glass-border)',
+        borderRadius: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: '6px',
+        padding: '16px',
+        textAlign: 'center'
+      }}>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+          Google Maps preview is offline.
+        </span>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+          Please input latitude and longitude coordinates manually.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+      <div ref={mapRef} style={{ width: '100%', height: '180px', background: '#1a1a24' }} />
+      <div style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.2)', fontSize: '0.72rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+        💡 Drag the marker or click on the map to choose coordinates
+      </div>
+    </div>
+  );
+};
+
 const BusinessSettings = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -1672,103 +1769,6 @@ const BusinessSettings = () => {
         }
       `}</style>
     </>
-  );
-};
-
-// Draggable Map Preview Component for Coordinates Configuration
-const LocationPreviewMap = ({ lat, lng, mapsLoaded, onCoordinatesChanged }) => {
-  const mapRef = React.useRef(null);
-  const [mapObj, setMapObj] = useState(null);
-  const [markerObj, setMarkerObj] = useState(null);
-
-  const numericLat = parseFloat(lat);
-  const numericLng = parseFloat(lng);
-  const hasValidCoords = !isNaN(numericLat) && !isNaN(numericLng) && numericLat >= -90 && numericLat <= 90 && numericLng >= -180 && numericLng <= 180;
-
-  useEffect(() => {
-    if (!window.google || !window.google.maps || !mapRef.current) return;
-
-    const google = window.google;
-    const initialCenter = hasValidCoords ? { lat: numericLat, lng: numericLng } : { lat: 12.971598, lng: 77.594562 }; // Default Bengaluru
-
-    const map = new google.maps.Map(mapRef.current, {
-      center: initialCenter,
-      zoom: hasValidCoords ? 15 : 10,
-      disableDefaultUI: true,
-      zoomControl: true,
-      styles: [
-        { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#202030' }] },
-        { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#707080' }] },
-      ]
-    });
-
-    const marker = new google.maps.Marker({
-      position: initialCenter,
-      map: map,
-      draggable: true,
-      title: 'Store Location'
-    });
-
-    google.maps.event.addListener(marker, 'dragend', () => {
-      const pos = marker.getPosition();
-      onCoordinatesChanged(pos.lat().toFixed(6), pos.lng().toFixed(6));
-    });
-
-    map.addListener('click', (e) => {
-      const pos = e.latLng;
-      marker.setPosition(pos);
-      onCoordinatesChanged(pos.lat().toFixed(6), pos.lng().toFixed(6));
-    });
-
-    setMapObj(map);
-    setMarkerObj(marker);
-
-    return () => {
-      google.maps.event.clearInstanceListeners(marker);
-      google.maps.event.clearInstanceListeners(map);
-    };
-  }, [mapsLoaded]);
-
-  // Sync marker position if coordinates change externally
-  useEffect(() => {
-    if (!markerObj || !mapObj || !hasValidCoords) return;
-    const pos = { lat: numericLat, lng: numericLng };
-    markerObj.setPosition(pos);
-    mapObj.panTo(pos);
-  }, [lat, lng, markerObj, mapObj]);
-
-  if (!window.google || !window.google.maps) {
-    return (
-      <div style={{
-        height: '140px',
-        background: 'rgba(255, 255, 255, 0.015)',
-        border: '1px dashed var(--glass-border)',
-        borderRadius: '8px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: '6px',
-        padding: '16px',
-        textAlign: 'center'
-      }}>
-        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-          Google Maps preview is offline.
-        </span>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-          Please input latitude and longitude coordinates manually.
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
-      <div ref={mapRef} style={{ width: '100%', height: '180px', background: '#1a1a24' }} />
-      <div style={{ padding: '6px 12px', background: 'rgba(0,0,0,0.2)', fontSize: '0.72rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-        💡 Drag the marker or click on the map to choose coordinates
-      </div>
-    </div>
   );
 };
 
