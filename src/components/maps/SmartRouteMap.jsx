@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { loadGoogleMapsScript, isGoogleMapsConfigured, calculateFallbackRoute } from '../../services/maps/googleMapsService';
 import { MapPin, Navigation, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
 
@@ -13,8 +13,23 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
     error: null,
   });
 
+  const mapStateRef = useRef(mapState);
+  useEffect(() => { mapStateRef.current = mapState; }, [mapState]);
+
   const [customerLoc, setCustomerLoc] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
+  const [routeError, setRouteError] = useState(null);
+
+  // Map Instance Refs
+  const mapInstanceRef = useRef(null);
+  const directionsServiceRef = useRef(null);
+  const directionsRendererRef = useRef(null);
+  const userMarkerRef = useRef(null);
+  const destMarkerRef = useRef(null);
+  
+  const watchIdRef = useRef(null);
+  const lastCalcTimeRef = useRef(0);
+  const lastCalcLocRef = useRef(null);
 
   // External link helper
   const getExternalMapLink = () => {
@@ -38,54 +53,31 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const userLat = position.coords.latitude;
-        const userLng = position.coords.longitude;
-        setCustomerLoc({ lat: userLat, lng: userLng });
+    const startWatching = async (userLat, userLng) => {
+      setCustomerLoc({ lat: userLat, lng: userLng });
 
-        // 3. Try to load Google Maps script
-        try {
-          const isConfigured = isGoogleMapsConfigured();
-          if (isConfigured) {
-            await loadGoogleMapsScript();
-            setMapState({
-              loading: false,
-              permissionDenied: false,
-              noLocation: false,
-              noLatLng: false,
-              scriptLoaded: true,
-              error: null,
-            });
-          } else {
-            // Fallback routing calculation
-            if (businessLat && businessLng) {
-              const fallback = calculateFallbackRoute(userLat, userLng, businessLat, businessLng);
-              setRouteInfo(fallback);
-              if (onRouteCalculated) onRouteCalculated(fallback.durationMins, fallback.distanceKm);
-            } else {
-              setRouteInfo({ distanceKm: 5, durationMins: 15 });
-              if (onRouteCalculated) onRouteCalculated(15, 5);
-            }
-            setMapState({
-              loading: false,
-              permissionDenied: false,
-              noLocation: false,
-              noLatLng: false,
-              scriptLoaded: false,
-              error: null,
-            });
-          }
-        } catch (err) {
-          console.error("Error initializing map script:", err);
-          // Fallback calculations even on script error
+      // 3. Try to load Google Maps script
+      try {
+        const isConfigured = isGoogleMapsConfigured();
+        if (isConfigured) {
+          await loadGoogleMapsScript();
+          setMapState({
+            loading: false,
+            permissionDenied: false,
+            noLocation: false,
+            noLatLng: false,
+            scriptLoaded: true,
+            error: null,
+          });
+        } else {
+          // Fallback routing calculation
           if (businessLat && businessLng) {
             const fallback = calculateFallbackRoute(userLat, userLng, businessLat, businessLng);
             setRouteInfo(fallback);
-            if (onRouteCalculated) onRouteCalculated(fallback.durationMins, fallback.distanceKm);
+            if (onRouteCalculated) onRouteCalculated(fallback.durationMins, fallback.distanceKm, 10);
           } else {
             setRouteInfo({ distanceKm: 5, durationMins: 15 });
-            if (onRouteCalculated) onRouteCalculated(15, 5);
+            if (onRouteCalculated) onRouteCalculated(15, 5, 10);
           }
           setMapState({
             loading: false,
@@ -93,8 +85,48 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
             noLocation: false,
             noLatLng: false,
             scriptLoaded: false,
-            error: "Failed to load maps visualization. Running in fallback mode.",
+            error: null,
           });
+        }
+      } catch (err) {
+        console.error("Error initializing map script:", err);
+        if (businessLat && businessLng) {
+          const fallback = calculateFallbackRoute(userLat, userLng, businessLat, businessLng);
+          setRouteInfo(fallback);
+          if (onRouteCalculated) onRouteCalculated(fallback.durationMins, fallback.distanceKm, 10);
+        } else {
+          setRouteError("Directions API missing and no store coordinates provided.");
+          setMapState({
+            loading: false,
+            permissionDenied: false,
+            noLocation: false,
+            noLatLng: false,
+            scriptLoaded: false,
+            error: null,
+          });
+          return;
+        }
+        setMapState({
+          loading: false,
+          permissionDenied: false,
+          noLocation: false,
+          noLatLng: false,
+          scriptLoaded: false,
+          error: "Failed to load maps visualization. Running in fallback mode.",
+        });
+      }
+    };
+
+    // Use watchPosition for real-time tracking
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+        
+        if (!mapStateRef.current.scriptLoaded && mapStateRef.current.loading) {
+          startWatching(userLat, userLng);
+        } else {
+          setCustomerLoc({ lat: userLat, lng: userLng });
         }
       },
       (error) => {
@@ -119,13 +151,44 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
           });
         }
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 8000 }
     );
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
   }, [businessLat, businessLng]);
 
   // Initialize Map if script is loaded successfully
   useEffect(() => {
     if (!mapState.scriptLoaded || !customerLoc || !mapRef.current) return;
+
+    if (mapInstanceRef.current) {
+      // Map is already initialized, just update markers and route
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setPosition({ lat: customerLoc.lat, lng: customerLoc.lng });
+      }
+
+      // Throttle directions API calls (e.g. only once every 15 seconds)
+      const now = Date.now();
+      if (now - lastCalcTimeRef.current < 15000) return;
+      lastCalcTimeRef.current = now;
+
+      // Ensure we don't recalculate if user hasn't moved much (e.g., < 20 meters)
+      if (lastCalcLocRef.current) {
+        const fallback = calculateFallbackRoute(
+          lastCalcLocRef.current.lat, lastCalcLocRef.current.lng,
+          customerLoc.lat, customerLoc.lng
+        );
+        if (fallback.distanceKm < 0.02) return; // less than 20 meters moved
+      }
+      lastCalcLocRef.current = customerLoc;
+
+      calculateDirections(customerLoc, directionsServiceRef.current, directionsRendererRef.current);
+      return;
+    }
 
     try {
       const google = window.google;
@@ -133,16 +196,8 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
         center: { lat: businessLat || customerLoc.lat, lng: businessLng || customerLoc.lng },
         zoom: 14,
         styles: [
-          {
-            featureType: 'all',
-            elementType: 'geometry',
-            stylers: [{ color: '#202030' }],
-          },
-          {
-            featureType: 'all',
-            elementType: 'labels.text.fill',
-            stylers: [{ color: '#707080' }],
-          },
+          { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#202030' }] },
+          { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#707080' }] },
         ],
         disableDefaultUI: true,
         zoomControl: true,
@@ -159,8 +214,12 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
         },
       });
 
+      mapInstanceRef.current = map;
+      directionsServiceRef.current = directionsService;
+      directionsRendererRef.current = directionsRenderer;
+
       // Markers
-      const userMarker = new google.maps.Marker({
+      userMarkerRef.current = new google.maps.Marker({
         position: { lat: customerLoc.lat, lng: customerLoc.lng },
         map: map,
         title: 'You',
@@ -175,7 +234,7 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
       });
 
       if (businessLat && businessLng) {
-        const destMarker = new google.maps.Marker({
+        destMarkerRef.current = new google.maps.Marker({
           position: { lat: businessLat, lng: businessLng },
           map: map,
           title: businessName,
@@ -190,43 +249,67 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
         });
       }
 
-      directionsService.route(
-        {
-          origin: { lat: customerLoc.lat, lng: customerLoc.lng },
-          destination: (businessLat && businessLng) ? { lat: businessLat, lng: businessLng } : businessAddress,
-          travelMode: google.maps.TravelMode.DRIVING,
-        },
-        (response, status) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(response);
-            const leg = response.routes[0].legs[0];
-            const distKm = parseFloat((leg.distance.value / 1000).toFixed(1));
-            const durMins = Math.round(leg.duration.value / 60);
-
-            setRouteInfo({ distanceKm: distKm, durationMins: durMins });
-            if (onRouteCalculated) {
-              onRouteCalculated(durMins, distKm);
-            }
-          } else {
-            console.error('Directions request failed due to ' + status);
-            // Fallback calculations
-            if (businessLat && businessLng) {
-              const fallback = calculateFallbackRoute(customerLoc.lat, customerLoc.lng, businessLat, businessLng);
-              setRouteInfo(fallback);
-              if (onRouteCalculated) {
-                onRouteCalculated(fallback.durationMins, fallback.distanceKm);
-              }
-            } else {
-              setRouteInfo({ distanceKm: 5, durationMins: 15 });
-              if (onRouteCalculated) onRouteCalculated(15, 5);
-            }
-          }
-        }
-      );
+      lastCalcTimeRef.current = Date.now();
+      lastCalcLocRef.current = customerLoc;
+      calculateDirections(customerLoc, directionsService, directionsRenderer);
     } catch (e) {
       console.error("Error setting up map:", e);
     }
-  }, [mapState.scriptLoaded, customerLoc]);
+  }, [mapState.scriptLoaded, customerLoc, businessLat, businessLng, businessAddress, businessName]);
+
+  const calculateDirections = useCallback((originLoc, service, renderer) => {
+    if (!service || !renderer) return;
+    const google = window.google;
+    
+    service.route(
+      {
+        origin: { lat: originLoc.lat, lng: originLoc.lng },
+        destination: (businessLat && businessLng) ? { lat: businessLat, lng: businessLng } : businessAddress,
+        travelMode: google.maps.TravelMode.DRIVING,
+        drivingOptions: {
+          departureTime: new Date(Date.now()), // Provides traffic data if API key permits
+          trafficModel: 'bestguess'
+        }
+      },
+      (response, status) => {
+        if (status === 'OK') {
+          renderer.setDirections(response);
+          const leg = response.routes[0].legs[0];
+          const distKm = parseFloat((leg.distance.value / 1000).toFixed(1));
+          const durMins = Math.round(leg.duration.value / 60);
+          
+          let bufferMins = 10;
+          if (leg.duration_in_traffic) {
+             const trafficDurMins = Math.round(leg.duration_in_traffic.value / 60);
+             if (trafficDurMins > durMins) {
+               bufferMins = Math.max(10, trafficDurMins - durMins);
+             }
+          } else {
+             // Dynamic buffer calculation based on travel time (minimum 10 mins)
+             bufferMins = Math.max(10, Math.ceil(durMins * 0.2)); 
+          }
+
+          setRouteInfo({ distanceKm: distKm, durationMins: durMins, bufferMins });
+          setRouteError(null);
+          if (onRouteCalculated) {
+            onRouteCalculated(durMins, distKm, bufferMins);
+          }
+        } else {
+          console.error('Directions request failed due to ' + status);
+          if (businessLat && businessLng) {
+            const fallback = calculateFallbackRoute(originLoc.lat, originLoc.lng, businessLat, businessLng);
+            setRouteInfo({ ...fallback, bufferMins: 10 });
+            setRouteError(null);
+            if (onRouteCalculated) {
+              onRouteCalculated(fallback.durationMins, fallback.distanceKm, 10);
+            }
+          } else {
+            setRouteError(`Route failed: ${status}. Address might be invalid or unreachable.`);
+          }
+        }
+      }
+    );
+  }, [businessLat, businessLng, businessAddress, onRouteCalculated]);
 
   // RENDER STATES
 
@@ -313,7 +396,15 @@ const SmartRouteMap = ({ businessLat, businessLng, businessAddress, businessName
   return (
     <div className="live-map-wrapper">
       <div ref={mapRef} className="live-map-container" />
-      {routeInfo && (
+      
+      {routeError && (
+        <div className="map-floating-overlay glass-panel animate-fade-in text-warn" style={{ bottom: 'auto', top: '16px', background: 'rgba(239, 83, 80, 0.15)', borderColor: 'rgba(239, 83, 80, 0.4)' }}>
+          <AlertTriangle size={16} />
+          <span style={{ fontSize: '0.85rem', fontWeight: '500', marginLeft: '8px' }}>{routeError}</span>
+        </div>
+      )}
+
+      {routeInfo && !routeError && (
         <div className="map-floating-overlay glass-panel animate-fade-in">
           <div>
             <span className="label">Travel Time</span>

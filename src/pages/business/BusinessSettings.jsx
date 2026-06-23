@@ -432,12 +432,35 @@ const BusinessSettings = () => {
     setGeocoding(true);
     setFormError('');
 
+    const fallbackOSM = () => {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressStr)}&limit=1`)
+        .then(res => res.json())
+        .then(data => {
+          setGeocoding(false);
+          if (data && data[0]) {
+            setFormState(prev => ({
+              ...prev,
+              lat: parseFloat(data[0].lat).toFixed(6),
+              lng: parseFloat(data[0].lon).toFixed(6)
+            }));
+            showToast('Location resolved via fallback geocoder!');
+          } else {
+            showToast('Unable to geocode address. Please input coordinates manually.', 'error');
+          }
+        })
+        .catch(err => {
+          console.error('OSM Geocode error:', err);
+          setGeocoding(false);
+          showToast('Unable to geocode address. Input coordinates manually.', 'error');
+        });
+    };
+
     try {
       if (window.google && window.google.maps && window.google.maps.Geocoder) {
         const geocoder = new window.google.maps.Geocoder();
         geocoder.geocode({ address: addressStr }, (results, status) => {
-          setGeocoding(false);
           if (status === 'OK' && results && results[0]) {
+            setGeocoding(false);
             const loc = results[0].geometry.location;
             setFormState(prev => ({
               ...prev,
@@ -446,37 +469,16 @@ const BusinessSettings = () => {
             }));
             showToast('Location resolved from address successfully!');
           } else {
-            console.error('Geocoding failed:', status);
-            showToast('Google Geocoding failed: ' + status, 'error');
+            console.error('Google Geocoding failed:', status, '- trying fallback.');
+            fallbackOSM();
           }
         });
       } else {
-        // Fallback Nominatim (OpenStreetMap)
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressStr)}&limit=1`)
-          .then(res => res.json())
-          .then(data => {
-            setGeocoding(false);
-            if (data && data[0]) {
-              setFormState(prev => ({
-                ...prev,
-                lat: parseFloat(data[0].lat).toFixed(6),
-                lng: parseFloat(data[0].lon).toFixed(6)
-              }));
-              showToast('Location resolved via fallback geocoder!');
-            } else {
-              showToast('Unable to geocode address. Please input coordinates manually.', 'error');
-            }
-          })
-          .catch(err => {
-            console.error('OSM Geocode error:', err);
-            setGeocoding(false);
-            showToast('Unable to geocode address. Input coordinates manually.', 'error');
-          });
+        fallbackOSM();
       }
     } catch (err) {
       console.error('Geocoding error:', err);
-      setGeocoding(false);
-      showToast('Geocoding failed. Enter coordinates manually.', 'error');
+      fallbackOSM();
     }
   };
 

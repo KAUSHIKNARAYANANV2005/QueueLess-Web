@@ -24,6 +24,7 @@ const SmartRoute = () => {
   // Travel route estimations
   const [travelDuration, setTravelDuration] = useState(null); // in minutes
   const [travelDistance, setTravelDistance] = useState(null); // in km
+  const [travelBuffer, setTravelBuffer] = useState(10); // in minutes
 
   const [notifTriggered, setNotifTriggered] = useState(false);
 
@@ -73,6 +74,7 @@ const SmartRoute = () => {
       });
       setTravelDuration(15);
       setTravelDistance(4.2);
+      setTravelBuffer(10);
       setLoading(false);
       return;
     }
@@ -176,7 +178,7 @@ const SmartRoute = () => {
     try {
       if (travelDuration === null || queueInfo.position === 0) return null;
       
-      const bufferMins = 10; // 10 minutes buffer
+      const bufferMins = travelBuffer || 10;
       const departureDelayMins = queueInfo.waitMinutes - travelDuration - bufferMins;
 
       const depTime = new Date();
@@ -192,14 +194,14 @@ const SmartRoute = () => {
       console.error("Error in travelStats calculation:", err);
       return null;
     }
-  }, [travelDuration, queueInfo]);
+  }, [travelDuration, queueInfo, travelBuffer]);
 
   // Smart Reminder Trigger Logic (runs client-side inside this page view)
   useEffect(() => {
     if (!currentUser || !booking || travelDuration === null || queueInfo.position === 0 || notifTriggered) return;
 
     const checkAndTriggerNotification = async () => {
-      const bufferMins = 10;
+      const bufferMins = travelBuffer || 10;
       const waitTime = queueInfo.waitMinutes;
       const totalTimeNeeded = travelDuration + bufferMins;
 
@@ -240,11 +242,14 @@ const SmartRoute = () => {
     };
 
     checkAndTriggerNotification();
-  }, [queueInfo, travelDuration, booking, currentUser, notifTriggered]);
+  }, [queueInfo, travelDuration, travelBuffer, booking, currentUser, notifTriggered]);
 
-  const handleRouteCalculated = (durationMins, distanceKm) => {
+  const handleRouteCalculated = (durationMins, distanceKm, calculatedBufferMins) => {
     setTravelDuration(durationMins);
     setTravelDistance(distanceKm);
+    if (calculatedBufferMins) {
+      setTravelBuffer(calculatedBufferMins);
+    }
   };
 
   const getExternalMapLink = () => {
